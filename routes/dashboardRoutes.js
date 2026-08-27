@@ -2,18 +2,27 @@ const express = require('express');
 const router = express.Router();
 const dashboardController = require('../controllers/dashboardController');
 const { isLoggedIn } = require('../middleware/auth');
-const db = require('../config/db'); // Added missing DB import
+const db = require('../config/db');
 
 router.get('/dashboard', isLoggedIn, dashboardController.getDashboard);
 
-// Added isLoggedIn middleware to protect session access
 router.get('/settings', isLoggedIn, async (req, res) => {
     try {
         const userId = req.session.user.id;
 
-        // Fetch user settings safely from database
-        const [rows] = await db.query('SELECT * FROM settings WHERE user_id = ?', [userId]);
-        const userSettings = rows.length > 0 ? rows[0] : {};
+        // 1. Fetch user settings
+        let [rows] = await db.query('SELECT * FROM settings WHERE user_id = ?', [userId]);
+
+        // 2. If user has no settings row yet, insert a default row automatically
+        if (rows.length === 0) {
+            await db.query(
+                'INSERT INTO settings (user_id, monthly_income, target_savings_percentage) VALUES (?, 0, 0)',
+                [userId]
+            );
+            [rows] = await db.query('SELECT * FROM settings WHERE user_id = ?', [userId]);
+        }
+
+        const userSettings = rows[0] || {};
 
         res.render('settings', {
             title: 'Settings - CashWisely',
