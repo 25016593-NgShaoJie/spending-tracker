@@ -30,7 +30,7 @@ exports.registerUser = async (req, res) => {
         );
 
         // Initialize default budget settings (1:1 record)
-        await db.execute('INSERT INTO budget_settings (user_id) VALUES (?)', [result.insertId]);
+        await db.execute('INSERT INTO settings (user_id) VALUES (?)', [result.insertId]);
 
         req.flash('success', 'Registration successful! Please log in.');
         res.redirect('/login');

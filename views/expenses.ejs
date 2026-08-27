@@ -44,7 +44,6 @@
                         <th>Category</th>
                         <th>Description</th>
                         <th>Amount</th>
-                        <th>Receipt</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -54,13 +53,6 @@
                             <td><%= expense.category %></td>
                             <td><%= expense.description || '-' %></td>
                             <td>$<%= Number(expense.amount).toFixed(2) %></td>
-                            <td>
-                                <% if (expense.image_url) { %>
-                                    <a href="<%= expense.image_url %>" target="_blank">View Receipt</a>
-                                <% } else { %>
-                                    <span>None</span>
-                                <% } %>
-                            </td>
                         </tr>
                     <% }) %>
                 </tbody>

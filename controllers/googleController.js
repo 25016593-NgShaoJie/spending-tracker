@@ -44,19 +44,17 @@ exports.syncAllExpensesToSheet = async (userId, sessionTokens = null) => {
         const sheets = google.sheets({ version: 'v4', auth: oauth2Client });
 
         const [expenses] = await db.execute(
-            `SELECT id, date_spent, category, amount, description, (receipt_data IS NOT NULL) AS has_receipt FROM expenses WHERE user_id = ? ORDER BY date_spent ASC`,
+            `SELECT id, date_spent, category, amount, description FROM expenses WHERE user_id = ? ORDER BY date_spent ASC`,
             [userId]
         );
 
         if (expenses.length === 0) return true;
 
-        const baseUrl = process.env.APP_URL || 'https://cashwisely.onrender.com';
-
         let existingRows = [];
         try {
             const response = await sheets.spreadsheets.values.get({
                 spreadsheetId: sheetId,
-                range: 'Sheet1!A:E',
+                range: 'Sheet1!A:D',
             });
             existingRows = response.data.values || [];
         } catch (readErr) {
@@ -70,9 +68,6 @@ exports.syncAllExpensesToSheet = async (userId, sessionTokens = null) => {
             const category = exp.category || 'Uncategorized';
             const amount = Number(exp.amount).toFixed(2);
             const description = exp.description || 'N/A';
-            const fullImageUrl = exp.has_receipt 
-                ? `${baseUrl}/expenses/receipt/${exp.id}` 
-                : 'No Receipt';
 
             const isDuplicate = existingRows.some(row => {
                 const [rDate, rCat, rAmt] = row;
@@ -80,14 +75,14 @@ exports.syncAllExpensesToSheet = async (userId, sessionTokens = null) => {
             });
 
             if (!isDuplicate) {
-                rowsToAppend.push([dateSpent, category, amount, description, fullImageUrl]);
+                rowsToAppend.push([dateSpent, category, amount, description]);
             }
         }
 
         if (rowsToAppend.length > 0) {
             await sheets.spreadsheets.values.append({
                 spreadsheetId: sheetId,
-                range: 'Sheet1!A:E',
+                range: 'Sheet1!A:D',
                 valueInputOption: 'USER_ENTERED',
                 requestBody: { values: rowsToAppend }
             });

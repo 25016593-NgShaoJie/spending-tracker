@@ -5,22 +5,15 @@ exports.addExpense = async (req, res) => {
     try {
         const userId = req.session.user.id;
         const { amount, category, description, date_spent } = req.body;
-        
-        // Read file buffer from upload input
-        const receiptData = req.file ? req.file.buffer : null;
-        const receiptMimetype = req.file ? req.file.mimetype : null;
 
-        // Save expense & image binary into MySQL
+        // Save expense into MySQL
         const [result] = await db.query(
-            'INSERT INTO expenses (user_id, amount, category, description, date_spent, receipt_data, receipt_mimetype) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [userId, amount, category, description || null, date_spent, receiptData, receiptMimetype]
+            'INSERT INTO expenses (user_id, amount, category, description, date_spent) VALUES (?, ?, ?, ?, ?)',
+            [userId, amount, category, description || null, date_spent]
         );
 
-        const expenseId = result.insertId;
-        const imageUrl = receiptData ? `/expenses/receipt/${expenseId}` : null;
-
         // Sync expense payload to Google Sheets
-        const expensePayload = { date_spent, category, amount, description, imageUrl };
+        const expensePayload = { date_spent, category, amount, description };
         appendExpenseToSheet(userId, expensePayload, req.session.tokens);
 
         req.flash('success', 'Expense logged successfully!');
@@ -35,42 +28,36 @@ exports.addExpense = async (req, res) => {
 exports.getExpenses = async (req, res) => {
     try {
         const userId = req.session.user.id;
-        const [expenses] = await db.query(
-            'SELECT id, amount, category, description, date_spent, (receipt_data IS NOT NULL) AS has_receipt FROM expenses WHERE user_id = ? ORDER BY date_spent DESC',
-            [userId]
-        );
+        const { startDate = '', endDate = '', category = 'All' } = req.query;
+
+        let sql = 'SELECT id, amount, category, description, date_spent FROM expenses WHERE user_id = ?';
+        const params = [userId];
+
+        if (startDate) {
+            sql += ' AND date_spent >= ?';
+            params.push(startDate);
+        }
+        if (endDate) {
+            sql += ' AND date_spent <= ?';
+            params.push(endDate);
+        }
+        if (category && category !== 'All') {
+            sql += ' AND category = ?';
+            params.push(category);
+        }
+
+        sql += ' ORDER BY date_spent DESC';
+
+        const [expenses] = await db.query(sql, params);
 
         res.render('expenses', {
             title: 'Expense History - CashWisely',
-            expenses
+            expenses,
+            filters: { startDate, endDate, category }
         });
     } catch (error) {
         console.error('Fetch Expenses Error:', error);
         req.flash('error', 'Unable to load expenses.');
         res.redirect('/dashboard');
-    }
-};
-
-// Serving route: Anyone clicking the link can view the stored receipt image
-exports.getReceiptImage = async (req, res) => {
-    try {
-        const expenseId = req.params.id;
-
-        const [rows] = await db.query(
-            'SELECT receipt_data, receipt_mimetype FROM expenses WHERE id = ?',
-            [expenseId]
-        );
-
-        if (rows.length === 0 || !rows[0].receipt_data) {
-            return res.status(404).send('No image attached to this expense.');
-        }
-
-        const receipt = rows[0];
-        res.setHeader('Content-Type', receipt.receipt_mimetype || 'image/jpeg');
-        res.setHeader('Content-Disposition', 'inline');
-        res.send(receipt.receipt_data);
-    } catch (error) {
-        console.error('Get Receipt Error:', error);
-        res.status(500).send('Error retrieving receipt image.');
     }
 };

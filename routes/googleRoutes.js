@@ -77,10 +77,10 @@ router.get('/auth/google/callback', async (req, res) => {
         // Initialize header row
         await sheets.spreadsheets.values.update({
             spreadsheetId,
-            range: 'Sheet1!A1:E1',
+            range: 'Sheet1!A1:D1',
             valueInputOption: 'USER_ENTERED',
             resource: {
-                values: [['Date', 'Category', 'Amount ($)', 'Description', 'Receipt URL']]
+                values: [['Date', 'Category', 'Amount ($)', 'Description']]
             }
         });
 

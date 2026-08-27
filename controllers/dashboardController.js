@@ -17,7 +17,7 @@ exports.getDashboard = async (req, res) => {
 
         // Fetch user expenses
         const [expenses] = await db.query(
-            'SELECT id, amount, category, description, date_spent, (receipt_data IS NOT NULL) AS has_receipt, image_url FROM expenses WHERE user_id = ? ORDER BY date_spent DESC',
+            'SELECT id, amount, category, description, date_spent FROM expenses WHERE user_id = ? ORDER BY date_spent DESC',
             [userId]
         );
 
