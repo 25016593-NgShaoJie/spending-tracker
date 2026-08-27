@@ -16,7 +16,7 @@
     </article>
     <article>
         <header><strong>Remaining Allowance</strong></header>
-        <h3 style="color: <%= metrics.remainingMonthlyAllowance < 0 ? '#e53e3e' : '#38a169' %>;">
+        <h3 style="<%= metrics.remainingMonthlyAllowance < 0 ? 'color: #e53e3e;' : 'color: #38a169;' %>">
             $<%= metrics.remainingMonthlyAllowance.toFixed(2) %>
         </h3>
         <small><%= metrics.daysRemaining %> days left in month</small>
