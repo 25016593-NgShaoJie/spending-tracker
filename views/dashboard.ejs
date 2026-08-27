@@ -1,0 +1,109 @@
+<%- include('partials/header') %>
+
+<div class="container">
+    <%- include('partials/flash') %>
+
+    <h1>Financial Overview</h1>
+
+    <!-- METRICS GRID -->
+    <div class="metrics-grid">
+        <div class="card">
+            <h3>Spent Today</h3>
+            <p class="metric-value text-danger">$<%= metrics.spentToday.toFixed(2) %></p>
+            <small>Safe daily limit: $<%= metrics.safeDailyAllowance.toFixed(2) %></small>
+        </div>
+        <div class="card">
+            <h3>Spent This Month</h3>
+            <p class="metric-value">$<%= metrics.spentThisMonth.toFixed(2) %></p>
+            <small>Monthly Limit: $<%= metrics.totalSpendableAllowance.toFixed(2) %></small>
+        </div>
+        <div class="card">
+            <h3>Remaining Allowance</h3>
+            <p class="metric-value <%= metrics.remainingMonthlyAllowance < 0 ? 'text-danger' : 'text-success' %>">
+                $<%= metrics.remainingMonthlyAllowance.toFixed(2) %>
+            </p>
+            <small><%= metrics.daysRemaining %> days left in month</small>
+        </div>
+        <div class="card">
+            <h3>Target Savings</h3>
+            <p class="metric-value">$<%= metrics.targetSavingsAmount.toFixed(2) %></p>
+            <small><%= metrics.targetSavingsPercentage %>% of $<%= metrics.monthlyIncome.toFixed(2) %></small>
+        </div>
+    </div>
+
+    <div class="content-split">
+        <!-- LOG EXPENSE FORM -->
+        <div class="card form-card">
+            <h2>Log New Expense</h2>
+            <form action="/expenses" method="POST" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label>Amount ($)</label>
+                    <input type="number" step="0.01" name="amount" placeholder="0.00" required>
+                </div>
+                <div class="form-group">
+                    <label>Category</label>
+                    <select name="category" required>
+                        <option value="" disabled selected>Select Category</option>
+                        <option value="Food & Dining">Food & Dining</option>
+                        <option value="Transportation">Transportation</option>
+                        <option value="Groceries">Groceries</option>
+                        <option value="Utilities">Utilities</option>
+                        <option value="Entertainment">Entertainment</option>
+                        <option value="Shopping">Shopping</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Date</label>
+                    <input type="date" name="date_spent" value="<%= new Date().toISOString().split('T')[0] %>" required>
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <input type="text" name="description" placeholder="e.g. Coffee at Starbucks">
+                </div>
+                <div class="form-group">
+                    <label>Receipt / Item Image</label>
+                    <input type="file" name="receiptImage" accept="image/*">
+                </div>
+                <button type="submit" class="btn btn-primary">Add Expense</button>
+            </form>
+        </div>
+
+        <!-- RECENT TRANSACTIONS TABLE -->
+        <div class="card table-card">
+            <h2>Recent Expenses</h2>
+            <% if (recentExpenses.length > 0) { %>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Category</th>
+                            <th>Amount</th>
+                            <th>Receipt</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% recentExpenses.forEach(expense => { %>
+                            <tr>
+                                <td><%= new Date(expense.date_spent).toLocaleDateString() %></td>
+                                <td><%= expense.category %></td>
+                                <td>$<%= Number(expense.amount).toFixed(2) %></td>
+                                <td>
+                                    <% if (expense.image_url) { %>
+                                        <a href="<%= expense.image_url %>" target="_blank">View Receipt</a>
+                                    <% } else { %>
+                                        <span>None</span>
+                                    <% } %>
+                                </td>
+                            </tr>
+                        <% }) %>
+                    </tbody>
+                </table>
+            <% } else { %>
+                <p>No expenses logged yet.</p>
+            <% } %>
+        </div>
+    </div>
+</div>
+
+<%- include('partials/footer') %>
