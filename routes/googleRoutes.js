@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { google } = require('googleapis');
-const db = require('../config/db'); // Adjust path to your MySQL connection file
+const db = require('../config/db');
 
 // Helper function to resolve the correct callback URI
 const getRedirectUri = () => {
@@ -26,6 +26,10 @@ const getOAuth2Client = () => {
 
 // Route to initiate Google Auth
 router.get('/auth/google', (req, res) => {
+    if (!req.session || !req.session.user) {
+        return res.redirect('/login');
+    }
+
     const oauth2Client = getOAuth2Client();
     const url = oauth2Client.generateAuthUrl({
         access_type: 'offline',
@@ -41,6 +45,10 @@ router.get('/auth/google', (req, res) => {
 
 // Route to handle Google Auth Callback
 router.get('/auth/google/callback', async (req, res) => {
+    if (!req.session || !req.session.user) {
+        return res.redirect('/login');
+    }
+
     const { code } = req.query;
     try {
         const oauth2Client = getOAuth2Client();
@@ -70,14 +78,12 @@ router.get('/auth/google/callback', async (req, res) => {
             }
         });
 
-        // Save sheet ID to database
-        const userId = req.session.user ? req.session.user.id : null;
-        if (userId) {
-            await db.query(
-                'UPDATE settings SET google_sheet_id = ? WHERE user_id = ?',
-                [spreadsheetId, userId]
-            );
-        }
+        // Save sheet ID to database for the logged-in user
+        const userId = req.session.user.id;
+        await db.query(
+            'UPDATE settings SET google_sheet_id = ? WHERE user_id = ?',
+            [spreadsheetId, userId]
+        );
 
         req.flash('success', 'Successfully connected Google Account and initialized Sheet!');
         res.redirect('/settings');
