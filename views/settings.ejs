@@ -10,20 +10,19 @@
         <form action="/settings/budget" method="POST">
             <div class="form-group">
                 <label>Monthly Income ($)</label>
-                <input type="number" step="0.01" name="monthly_income" value="<%= settings.monthlyIncome %>" required>
+                <input type="number" step="0.01" name="monthly_income" value="<%= (settings && settings.monthlyIncome) ? settings.monthlyIncome : 0 %>" required>
             </div>
             <div class="form-group">
                 <label>Target Savings Percentage (%)</label>
-                <input type="number" step="0.1" name="target_savings_percentage" value="<%= settings.targetSavingsPercentage %>" required>
+                <input type="number" step="0.1" name="target_savings_percentage" value="<%= (settings && settings.targetSavingsPercentage) ? settings.targetSavingsPercentage : 0 %>" required>
             </div>
             <button type="submit" class="btn btn-primary">Save Budget Settings</button>
         </form>
     </div>
 
-    <!-- GOOGLE SHEETS INTEGRATION PLACEHOLDER FOR PHASE 5 -->
     <div class="card">
         <h2>Google Spreadsheet Sync</h2>
-        <% if (settings.googleSheetId) { %>
+        <% if (settings && settings.googleSheetId) { %>
             <p class="text-success">Connected Sheet ID: <strong><%= settings.googleSheetId %></strong></p>
         <% } else { %>
             <p>Not connected to Google Sheets.</p>

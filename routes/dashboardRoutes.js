@@ -8,32 +8,40 @@ router.get('/dashboard', isLoggedIn, dashboardController.getDashboard);
 
 router.get('/settings', isLoggedIn, async (req, res) => {
     try {
-        const userId = req.session.user.id;
+        const userId = req.session.user ? req.session.user.id : null;
 
-        // 1. Fetch user settings
-        let [rows] = await db.query('SELECT * FROM settings WHERE user_id = ?', [userId]);
-
-        // 2. If user has no settings row yet, insert a default row automatically
-        if (rows.length === 0) {
-            await db.query(
-                'INSERT INTO settings (user_id, monthly_income, target_savings_percentage) VALUES (?, 0, 0)',
-                [userId]
-            );
-            [rows] = await db.query('SELECT * FROM settings WHERE user_id = ?', [userId]);
+        if (!userId) {
+            return res.redirect('/login');
         }
 
-        const userSettings = rows[0] || {};
+        // Fetch settings from database safely
+        let userSettings = {
+            monthlyIncome: 0,
+            targetSavingsPercentage: 0,
+            googleSheetId: null
+        };
 
+        try {
+            const [rows] = await db.query('SELECT * FROM settings WHERE user_id = ?', [userId]);
+            if (rows && rows.length > 0) {
+                userSettings = {
+                    monthlyIncome: rows[0].monthly_income || 0,
+                    targetSavingsPercentage: rows[0].target_savings_percentage || 0,
+                    googleSheetId: rows[0].google_sheet_id || null
+                };
+            }
+        } catch (dbError) {
+            console.error('Settings DB Query Error:', dbError);
+        }
+
+        // Render settings page
         res.render('settings', {
             title: 'Settings - CashWisely',
-            settings: {
-                monthlyIncome: userSettings.monthly_income || 0,
-                targetSavingsPercentage: userSettings.target_savings_percentage || 0,
-                googleSheetId: userSettings.google_sheet_id || null
-            }
+            settings: userSettings
         });
     } catch (error) {
-        console.error('Error loading settings:', error);
+        // Log the exact error to Render logs
+        console.error('CRITICAL SETTINGS ROUTE ERROR:', error);
         req.flash('error', 'Unable to load settings.');
         res.redirect('/dashboard');
     }
