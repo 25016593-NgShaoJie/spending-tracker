@@ -1,80 +1,54 @@
 const db = require('../config/db');
-const sheetService = require('../services/sheetService'); 
+const { appendExpenseToSheet } = require('./googleController');
 
-// Add Expense
-exports.createExpense = async (req, res) => {
+exports.addExpense = async (req, res) => {
     try {
         const userId = req.session.user.id;
-        const { amount, category, date_spent, description } = req.body;
+        const { amount, category, description, date_spent } = req.body;
+        const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
 
-        if (!amount || !category || !date_spent) {
-            req.flash('error', 'Please fill in required fields.');
-            return res.redirect('/dashboard');
-        }
-
-        // Cloudinary gives us the web link in req.file.path
-        const imageUrl = req.file ? req.file.path : null;
-
-        // 1. Save to MySQL First
-        const [result] = await db.execute(
-            `INSERT INTO expenses (user_id, amount, category, description, image_url, date_spent) 
-             VALUES (?, ?, ?, ?, ?, ?)`,
-            [userId, amount, category, description || null, imageUrl, date_spent]
+        // 1. Insert expense into MySQL database
+        const [result] = await db.query(
+            'INSERT INTO expenses (user_id, amount, category, description, date_spent, image_url) VALUES (?, ?, ?, ?, ?, ?)',
+            [userId, amount, category, description || null, date_spent, imageUrl]
         );
 
-        const insertedExpenseId = result.insertId;
-
-        // Redirect user immediately so the page doesn't lag
-        req.flash('success', 'Expense logged successfully!');
-        res.redirect('/dashboard');
-
-        // 2. THIS IS STEP 6: Background Sync to Google Sheets
-        sheetService.appendExpenseToSheet(userId, {
+        // 2. Prepare payload for Google Sheets sync
+        const expensePayload = {
             date_spent,
             category,
             amount,
             description,
             imageUrl
-        }).then(async (synced) => {
-            if (synced) {
-                // Mark expense as synced in database
-                await db.execute(
-                    `UPDATE expenses SET synced_to_sheets = TRUE WHERE id = ?`, 
-                    [insertedExpenseId]
-                );
-            }
-        });
+        };
 
+        // 3. Trigger duplicate check & append to Google Sheet (non-blocking)
+        appendExpenseToSheet(userId, expensePayload, req.session.tokens);
+
+        req.flash('success', 'Expense logged successfully!');
+        res.redirect('/dashboard');
     } catch (error) {
-        console.error('Error creating expense:', error);
+        console.error('Add Expense Error:', error);
         req.flash('error', 'Failed to log expense.');
         res.redirect('/dashboard');
     }
 };
 
-// Get Expenses & History
 exports.getExpenses = async (req, res) => {
     try {
         const userId = req.session.user.id;
-        const { startDate, endDate, category } = req.query;
-
-        let query = `SELECT * FROM expenses WHERE user_id = ?`;
-        let params = [userId];
-
-        if (startDate) { query += ` AND date_spent >= ?`; params.push(startDate); }
-        if (endDate) { query += ` AND date_spent <= ?`; params.push(endDate); }
-        if (category && category !== 'All') { query += ` AND category = ?`; params.push(category); }
-
-        query += ` ORDER BY date_spent DESC, created_at DESC`;
-        const [expenses] = await db.execute(query, params);
+        const [expenses] = await db.query(
+            'SELECT * FROM expenses WHERE user_id = ? ORDER BY date_spent DESC',
+            [userId]
+        );
 
         res.render('expenses', {
-            title: 'Expense History',
-            expenses,
-            filters: { startDate: startDate || '', endDate: endDate || '', category: category || 'All' }
+            title: 'Expense History - CashWisely',
+            expenses
         });
     } catch (error) {
-        console.error('Error fetching expenses:', error);
+        console.error('Fetch Expenses Error:', error);
+        req.flash('error', 'Unable to load expenses.');
         res.redirect('/dashboard');
     }
 };

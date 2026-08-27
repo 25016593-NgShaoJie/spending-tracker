@@ -56,39 +56,46 @@ router.get('/auth/google/callback', async (req, res) => {
         oauth2Client.setCredentials(tokens);
 
         req.session.tokens = tokens;
+        const userId = req.session.user.id;
 
-        // Create a new Google Spreadsheet
+        // Save refresh token to user record if returned
+        if (tokens.refresh_token) {
+            await db.query(
+                'UPDATE users SET google_refresh_token = ? WHERE id = ?',
+                [tokens.refresh_token, userId]
+            );
+        }
+
+        // Create Google Spreadsheet
         const sheets = google.sheets({ version: 'v4', auth: oauth2Client });
         const spreadsheet = await sheets.spreadsheets.create({
-            resource: {
-                properties: { title: 'CashWisely Expenses' }
-            },
-            fields: 'spreadsheetId,spreadsheetUrl'
+            resource: { properties: { title: 'CashWisely Expenses' } },
+            fields: 'spreadsheetId'
         });
 
         const spreadsheetId = spreadsheet.data.spreadsheetId;
 
-        // Initialize header row
+        // Initialize header row (Columns A to E)
         await sheets.spreadsheets.values.update({
             spreadsheetId,
-            range: 'Sheet1!A1:D1',
+            range: 'Sheet1!A1:E1',
             valueInputOption: 'USER_ENTERED',
             resource: {
-                values: [['Date', 'Category', 'Amount ($)', 'Description']]
+                values: [['Date', 'Category', 'Amount ($)', 'Description', 'Receipt URL']]
             }
         });
 
-        // Save sheet ID to database for the logged-in user
-        const userId = req.session.user.id;
+        // Upsert spreadsheet ID into settings table
         await db.query(
-            'UPDATE settings SET google_sheet_id = ? WHERE user_id = ?',
-            [spreadsheetId, userId]
+            `INSERT INTO settings (user_id, google_sheet_id) VALUES (?, ?)
+             ON DUPLICATE KEY UPDATE google_sheet_id = ?`,
+            [userId, spreadsheetId, spreadsheetId]
         );
 
         req.flash('success', 'Successfully connected Google Account and initialized Sheet!');
         res.redirect('/settings');
     } catch (error) {
-        console.error('Google OAuth Error:', error);
+        console.error('Google OAuth Error:', error.response ? error.response.data : error);
         req.flash('error', 'Failed to connect Google Account.');
         res.redirect('/settings');
     }
