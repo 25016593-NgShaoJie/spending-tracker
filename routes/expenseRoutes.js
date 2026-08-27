@@ -5,6 +5,6 @@ const upload = require('../middleware/upload');
 const { isLoggedIn } = require('../middleware/auth');
 
 router.get('/expenses', isLoggedIn, expenseController.getExpenses);
-router.post('/expenses', isLoggedIn, upload.single('receiptImage'), expenseController.createExpense);
+router.post('/expenses', isLoggedIn, upload.single('receiptImage'), expenseController.addExpense);
 
 module.exports = router;
