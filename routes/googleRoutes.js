@@ -1,19 +1,17 @@
 const express = require('express');
 const router = express.Router();
 const { google } = require('googleapis');
+const db = require('../config/db'); // Adjust path to your MySQL connection file
 
 // Helper function to resolve the correct callback URI
 const getRedirectUri = () => {
-    // 1. First choice: Use GOOGLE_REDIRECT_URI or GOOGLE_CALLBACK_URL if defined in environment
     if (process.env.GOOGLE_REDIRECT_URI) return process.env.GOOGLE_REDIRECT_URI;
     if (process.env.GOOGLE_CALLBACK_URL) return process.env.GOOGLE_CALLBACK_URL;
 
-    // 2. Fallback check based on deployment mode
     if (process.env.NODE_ENV === 'production') {
         return 'https://cashwisely.onrender.com/auth/google/callback';
     }
 
-    // 3. Default local development fallback
     return 'http://localhost:4000/auth/google/callback';
 };
 
@@ -42,7 +40,6 @@ router.get('/auth/google', (req, res) => {
 });
 
 // Route to handle Google Auth Callback
-// Route to handle Google Auth Callback
 router.get('/auth/google/callback', async (req, res) => {
     const { code } = req.query;
     try {
@@ -52,29 +49,18 @@ router.get('/auth/google/callback', async (req, res) => {
 
         req.session.tokens = tokens;
 
-        // Initialize Google Sheets API
+        // Create a new Google Spreadsheet
         const sheets = google.sheets({ version: 'v4', auth: oauth2Client });
-
-        // Create a new Google Spreadsheet for the user
-        const resource = {
-            properties: {
-                title: 'CashWisely - Expense Tracker',
-            },
-        };
-
         const spreadsheet = await sheets.spreadsheets.create({
-            resource,
-            fields: 'spreadsheetId,spreadsheetUrl',
+            resource: {
+                properties: { title: 'CashWisely Expenses' }
+            },
+            fields: 'spreadsheetId,spreadsheetUrl'
         });
 
         const spreadsheetId = spreadsheet.data.spreadsheetId;
-        const spreadsheetUrl = spreadsheet.data.spreadsheetUrl;
 
-        // Save spreadsheet details to session (or update user in DB)
-        req.session.spreadsheetId = spreadsheetId;
-        // Example DB update: await db.query('UPDATE users SET spreadsheet_id = ? WHERE id = ?', [spreadsheetId, req.session.user.id]);
-
-        // Format headers in the new sheet
+        // Initialize header row
         await sheets.spreadsheets.values.update({
             spreadsheetId,
             range: 'Sheet1!A1:D1',
@@ -84,11 +70,20 @@ router.get('/auth/google/callback', async (req, res) => {
             }
         });
 
-        req.flash('success', `Google Account connected! Sheet created: ${spreadsheetUrl}`);
+        // Save sheet ID to database
+        const userId = req.session.user ? req.session.user.id : null;
+        if (userId) {
+            await db.query(
+                'UPDATE settings SET google_sheet_id = ? WHERE user_id = ?',
+                [spreadsheetId, userId]
+            );
+        }
+
+        req.flash('success', 'Successfully connected Google Account and initialized Sheet!');
         res.redirect('/settings');
     } catch (error) {
-        console.error('Google Sheets Linking Error:', error);
-        req.flash('error', 'Connected account, but failed to initialize Google Sheet.');
+        console.error('Google OAuth Error:', error);
+        req.flash('error', 'Failed to connect Google Account.');
         res.redirect('/settings');
     }
 });
