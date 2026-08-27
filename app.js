@@ -49,6 +49,21 @@ app.get('/', (req, res) => {
     res.redirect('/login');
 });
 
+// Legal & OAuth Compliance Routes
+app.get('/privacy', (req, res) => {
+    res.render('privacy', { 
+        title: 'Privacy Policy - CashWisely',
+        user: req.session.user || null 
+    });
+});
+
+app.get('/terms', (req, res) => {
+    res.render('terms', { 
+        title: 'Terms of Service - CashWisely',
+        user: req.session.user || null 
+    });
+});
+
 // Server Initialization
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
