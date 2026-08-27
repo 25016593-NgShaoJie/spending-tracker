@@ -64,6 +64,19 @@ app.get('/terms', (req, res) => {
     });
 });
 
+// Express route that triggers Google Authentication
+app.get('/auth/google', (req, res, next) => {
+    // Automatically detect whether running on Render (production) or local machine
+    const redirectUri = process.env.NODE_ENV === 'production'
+        ? 'https://cashwisely.onrender.com/auth/google/callback'
+        : 'http://localhost:4000/auth/google/callback';
+
+    passport.authenticate('google', {
+        scope: ['profile', 'email', 'https://www.googleapis.com/auth/spreadsheets'],
+        callbackURL: redirectUri
+    })(req, res, next);
+});
+
 // Server Initialization
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
