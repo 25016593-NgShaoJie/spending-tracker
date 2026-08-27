@@ -42,19 +42,53 @@ router.get('/auth/google', (req, res) => {
 });
 
 // Route to handle Google Auth Callback
+// Route to handle Google Auth Callback
 router.get('/auth/google/callback', async (req, res) => {
     const { code } = req.query;
     try {
         const oauth2Client = getOAuth2Client();
         const { tokens } = await oauth2Client.getToken(code);
-        
+        oauth2Client.setCredentials(tokens);
+
         req.session.tokens = tokens;
-        
-        req.flash('success', 'Successfully connected Google Account!');
+
+        // Initialize Google Sheets API
+        const sheets = google.sheets({ version: 'v4', auth: oauth2Client });
+
+        // Create a new Google Spreadsheet for the user
+        const resource = {
+            properties: {
+                title: 'CashWisely - Expense Tracker',
+            },
+        };
+
+        const spreadsheet = await sheets.spreadsheets.create({
+            resource,
+            fields: 'spreadsheetId,spreadsheetUrl',
+        });
+
+        const spreadsheetId = spreadsheet.data.spreadsheetId;
+        const spreadsheetUrl = spreadsheet.data.spreadsheetUrl;
+
+        // Save spreadsheet details to session (or update user in DB)
+        req.session.spreadsheetId = spreadsheetId;
+        // Example DB update: await db.query('UPDATE users SET spreadsheet_id = ? WHERE id = ?', [spreadsheetId, req.session.user.id]);
+
+        // Format headers in the new sheet
+        await sheets.spreadsheets.values.update({
+            spreadsheetId,
+            range: 'Sheet1!A1:D1',
+            valueInputOption: 'USER_ENTERED',
+            resource: {
+                values: [['Date', 'Category', 'Amount ($)', 'Description']]
+            }
+        });
+
+        req.flash('success', `Google Account connected! Sheet created: ${spreadsheetUrl}`);
         res.redirect('/settings');
     } catch (error) {
-        console.error('Google OAuth Error:', error);
-        req.flash('error', 'Failed to connect Google Account.');
+        console.error('Google Sheets Linking Error:', error);
+        req.flash('error', 'Connected account, but failed to initialize Google Sheet.');
         res.redirect('/settings');
     }
 });
