@@ -64,17 +64,13 @@ app.get('/terms', (req, res) => {
     });
 });
 
-// Express route that triggers Google Authentication
-app.get('/auth/google', (req, res, next) => {
-    // Automatically detect whether running on Render (production) or local machine
-    const redirectUri = process.env.NODE_ENV === 'production'
-        ? 'https://cashwisely.onrender.com/auth/google/callback'
-        : 'http://localhost:4000/auth/google/callback';
-
-    passport.authenticate('google', {
-        scope: ['profile', 'email', 'https://www.googleapis.com/auth/spreadsheets'],
-        callbackURL: redirectUri
-    })(req, res, next);
+// Global Error Handler (catches errors from routes/middleware, e.g. failed uploads)
+app.use((err, req, res, next) => {
+    console.error('Unhandled Error:', err);
+    if (req.flash) {
+        req.flash('error', 'Something went wrong: ' + err.message);
+    }
+    res.redirect(req.headers.referer || '/dashboard');
 });
 
 // Server Initialization
