@@ -7,13 +7,13 @@ exports.addExpense = async (req, res) => {
         const { amount, category, description, date_spent } = req.body;
         const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
 
-        // 1. Insert expense into MySQL database
-        const [result] = await db.query(
+        // 1. Save to MySQL database
+        await db.query(
             'INSERT INTO expenses (user_id, amount, category, description, date_spent, image_url) VALUES (?, ?, ?, ?, ?, ?)',
             [userId, amount, category, description || null, date_spent, imageUrl]
         );
 
-        // 2. Prepare payload for Google Sheets sync
+        // 2. Prepare payload for Google Sheets duplicate check and append
         const expensePayload = {
             date_spent,
             category,
@@ -22,7 +22,7 @@ exports.addExpense = async (req, res) => {
             imageUrl
         };
 
-        // 3. Trigger duplicate check & append to Google Sheet (non-blocking)
+        // 3. Trigger Google Sheets sync (non-blocking)
         appendExpenseToSheet(userId, expensePayload, req.session.tokens);
 
         req.flash('success', 'Expense logged successfully!');

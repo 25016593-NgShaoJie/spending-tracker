@@ -3,7 +3,7 @@ const router = express.Router();
 const { google } = require('googleapis');
 const db = require('../config/db');
 
-// Helper function to resolve the correct callback URI
+// Dynamic callback URI selection
 const getRedirectUri = () => {
     if (process.env.GOOGLE_REDIRECT_URI) return process.env.GOOGLE_REDIRECT_URI;
     if (process.env.GOOGLE_CALLBACK_URL) return process.env.GOOGLE_CALLBACK_URL;
@@ -15,7 +15,6 @@ const getRedirectUri = () => {
     return 'http://localhost:4000/auth/google/callback';
 };
 
-// Initialize OAuth2 Client using dynamic URI
 const getOAuth2Client = () => {
     return new google.auth.OAuth2(
         process.env.GOOGLE_CLIENT_ID,
@@ -24,7 +23,7 @@ const getOAuth2Client = () => {
     );
 };
 
-// Route to initiate Google Auth
+// Route to initiate Google OAuth
 router.get('/auth/google', (req, res) => {
     if (!req.session || !req.session.user) {
         return res.redirect('/login');
@@ -43,7 +42,7 @@ router.get('/auth/google', (req, res) => {
     res.redirect(url);
 });
 
-// Route to handle Google Auth Callback
+// Route to handle Google OAuth Callback
 router.get('/auth/google/callback', async (req, res) => {
     if (!req.session || !req.session.user) {
         return res.redirect('/login');
@@ -58,7 +57,7 @@ router.get('/auth/google/callback', async (req, res) => {
         req.session.tokens = tokens;
         const userId = req.session.user.id;
 
-        // Save refresh token to user record if returned
+        // Save refresh token to user record if provided
         if (tokens.refresh_token) {
             await db.query(
                 'UPDATE users SET google_refresh_token = ? WHERE id = ?',
@@ -75,7 +74,7 @@ router.get('/auth/google/callback', async (req, res) => {
 
         const spreadsheetId = spreadsheet.data.spreadsheetId;
 
-        // Initialize header row (Columns A to E)
+        // Initialize header row
         await sheets.spreadsheets.values.update({
             spreadsheetId,
             range: 'Sheet1!A1:E1',
@@ -85,7 +84,7 @@ router.get('/auth/google/callback', async (req, res) => {
             }
         });
 
-        // Upsert spreadsheet ID into settings table
+        // Store sheet ID in settings table
         await db.query(
             `INSERT INTO settings (user_id, google_sheet_id) VALUES (?, ?)
              ON DUPLICATE KEY UPDATE google_sheet_id = ?`,

@@ -14,7 +14,6 @@ router.get('/settings', isLoggedIn, async (req, res) => {
             return res.redirect('/login');
         }
 
-        // Fetch settings from database safely
         let userSettings = {
             monthlyIncome: 0,
             targetSavingsPercentage: 0,
@@ -34,13 +33,11 @@ router.get('/settings', isLoggedIn, async (req, res) => {
             console.error('Settings DB Query Error:', dbError);
         }
 
-        // Render settings page
         res.render('settings', {
             title: 'Settings - CashWisely',
             settings: userSettings
         });
     } catch (error) {
-        // Log the exact error to Render logs
         console.error('CRITICAL SETTINGS ROUTE ERROR:', error);
         req.flash('error', 'Unable to load settings.');
         res.redirect('/dashboard');

@@ -2,7 +2,7 @@ const { google } = require('googleapis');
 const db = require('../config/db');
 
 /**
- * Checks if an expense already exists in the sheet; if not, appends it.
+ * Checks if an expense exists in the Google Sheet; if not, appends it.
  */
 exports.appendExpenseToSheet = async (userId, expenseData, sessionTokens = null) => {
     try {
@@ -43,7 +43,7 @@ exports.appendExpenseToSheet = async (userId, expenseData, sessionTokens = null)
 
         const sheets = google.sheets({ version: 'v4', auth: oauth2Client });
 
-        // 3. Prepare target values
+        // 3. Format row payload
         const dateSpent = expenseData.date_spent || expenseData.date || new Date().toISOString().split('T')[0];
         const category = expenseData.category;
         const amount = Number(expenseData.amount).toFixed(2);
@@ -54,7 +54,7 @@ exports.appendExpenseToSheet = async (userId, expenseData, sessionTokens = null)
             ? (expenseData.imageUrl.startsWith('http') ? expenseData.imageUrl : `${baseUrl}${expenseData.imageUrl}`) 
             : 'No Receipt';
 
-        // 4. Fetch existing rows from Sheet1 to verify duplicate status
+        // 4. Check existing sheet values to prevent duplicate entries
         const response = await sheets.spreadsheets.values.get({
             spreadsheetId: sheetId,
             range: 'Sheet1!A:E',
@@ -62,7 +62,6 @@ exports.appendExpenseToSheet = async (userId, expenseData, sessionTokens = null)
 
         const existingRows = response.data.values || [];
 
-        // Check if an entry with the same Date, Category, Amount, and Description exists
         const isDuplicate = existingRows.some(row => {
             const [rowDate, rowCat, rowAmt, rowDesc] = row;
             return (
@@ -78,7 +77,7 @@ exports.appendExpenseToSheet = async (userId, expenseData, sessionTokens = null)
             return true;
         }
 
-        // 5. Append new row if not found
+        // 5. Append new row if not present
         const rowValues = [[dateSpent, category, amount, description, fullImageUrl]];
 
         await sheets.spreadsheets.values.append({
@@ -88,7 +87,7 @@ exports.appendExpenseToSheet = async (userId, expenseData, sessionTokens = null)
             requestBody: { values: rowValues }
         });
 
-        console.log(`[Google Sheets] New expense synced successfully for User #${userId}!`);
+        console.log(`[Google Sheets] Expense synced successfully for User #${userId}!`);
         return true;
 
     } catch (error) {

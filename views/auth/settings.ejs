@@ -1,36 +1,34 @@
 <%- include('partials/header') %>
-<%- include('partials/flash') %>
 
-<h1>Settings</h1>
+<div class="container">
+    <%- include('partials/flash') %>
 
-<article>
-    <h2>Monthly Budget & Income Baseline</h2>
-    <form action="/settings/budget" method="POST">
-        <label for="monthly_income">Monthly Income ($)</label>
-        <input type="number" step="0.01" id="monthly_income" name="monthly_income" value="<%= settings.monthlyIncome %>" required>
+    <h1>Settings</h1>
 
-        <label for="target_savings_percentage">Target Savings Percentage (%)</label>
-        <input type="number" step="0.1" id="target_savings_percentage" name="target_savings_percentage" value="<%= settings.targetSavingsPercentage %>" required>
+    <div class="card">
+        <h2>Monthly Income & Savings Baseline</h2>
+        <form action="/settings/budget" method="POST">
+            <div class="form-group">
+                <label>Monthly Income ($)</label>
+                <input type="number" step="0.01" name="monthly_income" value="<%= (settings && settings.monthlyIncome) ? settings.monthlyIncome : 0 %>" required>
+            </div>
+            <div class="form-group">
+                <label>Target Savings Percentage (%)</label>
+                <input type="number" step="0.1" name="target_savings_percentage" value="<%= (settings && settings.targetSavingsPercentage) ? settings.targetSavingsPercentage : 0 %>" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Save Budget Settings</button>
+        </form>
+    </div>
 
-        <button type="submit">Save Budget Settings</button>
-    </form>
-</article>
-
-<article>
-    <h2>Google Sheets Integration</h2>
-    <% if (settings.googleSheetId) { %>
-        <p style="color: #38a169;">Connected Sheet ID: <strong><%= settings.googleSheetId %></strong></p>
-    <% } else { %>
-        <p>Connect your Google Account to automatically append expenses into a Google Spreadsheet.</p>
-    <% } %>
-
-    <form action="/settings/google-sheet" method="POST" style="margin-bottom: 1rem;">
-        <label for="google_sheet_id">Google Sheet ID</label>
-        <input type="text" id="google_sheet_id" name="google_sheet_id" value="<%= settings.googleSheetId %>" placeholder="e.g. 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms" required>
-        <button type="submit" class="secondary">Save Sheet ID</button>
-    </form>
-
-    <a href="/auth/google" role="button" class="contrast">Authenticate Google Account</a>
-</article>
+    <div class="card">
+        <h2>Google Spreadsheet Sync</h2>
+        <% if (settings && settings.googleSheetId) { %>
+            <p class="text-success">Connected Sheet ID: <strong><%= settings.googleSheetId %></strong></p>
+        <% } else { %>
+            <p>Not connected to Google Sheets.</p>
+        <% } %>
+        <a href="/auth/google" class="btn btn-secondary">Connect / Reconnect Google Account</a>
+    </div>
+</div>
 
 <%- include('partials/footer') %>
