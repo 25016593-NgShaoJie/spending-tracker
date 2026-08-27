@@ -2,12 +2,27 @@ const express = require('express');
 const router = express.Router();
 const { google } = require('googleapis');
 
-// Initialize OAuth2 Client using the env variable
+// Helper function to resolve the correct callback URI
+const getRedirectUri = () => {
+    // 1. First choice: Use GOOGLE_REDIRECT_URI or GOOGLE_CALLBACK_URL if defined in environment
+    if (process.env.GOOGLE_REDIRECT_URI) return process.env.GOOGLE_REDIRECT_URI;
+    if (process.env.GOOGLE_CALLBACK_URL) return process.env.GOOGLE_CALLBACK_URL;
+
+    // 2. Fallback check based on deployment mode
+    if (process.env.NODE_ENV === 'production') {
+        return 'https://cashwisely.onrender.com/auth/google/callback';
+    }
+
+    // 3. Default local development fallback
+    return 'http://localhost:4000/auth/google/callback';
+};
+
+// Initialize OAuth2 Client using dynamic URI
 const getOAuth2Client = () => {
     return new google.auth.OAuth2(
         process.env.GOOGLE_CLIENT_ID,
         process.env.GOOGLE_CLIENT_SECRET,
-        process.env.GOOGLE_REDIRECT_URI || 'http://localhost:4000/auth/google/callback'
+        getRedirectUri()
     );
 };
 
