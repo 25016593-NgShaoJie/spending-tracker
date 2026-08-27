@@ -88,7 +88,7 @@
     <!-- Recent Transactions Table -->
     <div class="card">
         <h3 style="margin-bottom: 1rem;">Recent Transactions</h3>
-        <% if (recentExpenses.length > 0) { %>
+        <% if (recentExpenses && recentExpenses.length > 0) { %>
             <div style="overflow-x: auto;">
                 <table class="data-table">
                     <thead>
@@ -106,8 +106,8 @@
                                 <td><%= expense.category %></td>
                                 <td style="font-weight: 600;">$<%= Number(expense.amount).toFixed(2) %></td>
                                 <td>
-                                    <% if (expense.image_url) { %>
-                                        <a href="<%= expense.image_url %>" target="_blank" rel="noopener" style="color: var(--primary); font-weight: 500;">View</a>
+                                    <% if (expense.has_receipt || expense.image_url) { %>
+                                        <a href="<%= expense.image_url || ('/expenses/receipt/' + expense.id) %>" target="_blank" rel="noopener" style="color: var(--primary); font-weight: 500;">View</a>
                                     <% } else { %>
                                         <span style="color: var(--text-muted);">-</span>
                                     <% } %>

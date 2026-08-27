@@ -1,11 +1,11 @@
 const multer = require('multer');
 
-// Store uploaded files in RAM memory as a Buffer
+// Store uploaded image in memory buffer
 const storage = multer.memoryStorage();
 
 const upload = multer({
     storage: storage,
-    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB max file size
     fileFilter: (req, file, cb) => {
         if (file.mimetype.startsWith('image/')) {
             cb(null, true);

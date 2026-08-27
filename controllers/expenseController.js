@@ -6,11 +6,11 @@ exports.addExpense = async (req, res) => {
         const userId = req.session.user.id;
         const { amount, category, description, date_spent } = req.body;
         
-        // Extract raw image buffer and mime type if uploaded
+        // Read file buffer from upload input
         const receiptData = req.file ? req.file.buffer : null;
         const receiptMimetype = req.file ? req.file.mimetype : null;
 
-        // 1. Insert expense record and raw image buffer into MySQL
+        // Save expense & image binary into MySQL
         const [result] = await db.query(
             'INSERT INTO expenses (user_id, amount, category, description, date_spent, receipt_data, receipt_mimetype) VALUES (?, ?, ?, ?, ?, ?, ?)',
             [userId, amount, category, description || null, date_spent, receiptData, receiptMimetype]
@@ -19,24 +19,11 @@ exports.addExpense = async (req, res) => {
         const expenseId = result.insertId;
         const imageUrl = receiptData ? `/expenses/receipt/${expenseId}` : null;
 
-        // 2. Sync to Google Sheets
-        const expensePayload = {
-            id: expenseId,
-            date_spent,
-            category,
-            amount,
-            description,
-            imageUrl
-        };
+        // Sync expense payload to Google Sheets
+        const expensePayload = { date_spent, category, amount, description, imageUrl };
+        appendExpenseToSheet(userId, expensePayload, req.session.tokens);
 
-        const synced = await appendExpenseToSheet(userId, expensePayload, req.session.tokens);
-
-        if (synced) {
-            req.flash('success', 'Expense logged and synced to Google Sheets!');
-        } else {
-            req.flash('success', 'Expense logged successfully (Google Sheets sync bypassed or disconnected).');
-        }
-
+        req.flash('success', 'Expense logged successfully!');
         res.redirect('/dashboard');
     } catch (error) {
         console.error('Add Expense Error:', error);
@@ -48,37 +35,14 @@ exports.addExpense = async (req, res) => {
 exports.getExpenses = async (req, res) => {
     try {
         const userId = req.session.user.id;
-
-        const filters = {
-            startDate: req.query.startDate || '',
-            endDate: req.query.endDate || '',
-            category: req.query.category || 'All'
-        };
-
-        let query = 'SELECT id, amount, category, description, date_spent, (receipt_data IS NOT NULL) AS has_receipt FROM expenses WHERE user_id = ?';
-        const params = [userId];
-
-        if (filters.startDate) {
-            query += ' AND date_spent >= ?';
-            params.push(filters.startDate);
-        }
-        if (filters.endDate) {
-            query += ' AND date_spent <= ?';
-            params.push(filters.endDate);
-        }
-        if (filters.category && filters.category !== 'All') {
-            query += ' AND category = ?';
-            params.push(filters.category);
-        }
-
-        query += ' ORDER BY date_spent DESC';
-
-        const [expenses] = await db.query(query, params);
+        const [expenses] = await db.query(
+            'SELECT id, amount, category, description, date_spent, (receipt_data IS NOT NULL) AS has_receipt FROM expenses WHERE user_id = ? ORDER BY date_spent DESC',
+            [userId]
+        );
 
         res.render('expenses', {
             title: 'Expense History - CashWisely',
-            expenses,
-            filters
+            expenses
         });
     } catch (error) {
         console.error('Fetch Expenses Error:', error);
@@ -87,23 +51,23 @@ exports.getExpenses = async (req, res) => {
     }
 };
 
-// Route controller to retrieve and display stored receipt image binary from MySQL
+// Serving route: Anyone clicking the link can view the stored receipt image
 exports.getReceiptImage = async (req, res) => {
     try {
-        const userId = req.session.user.id;
         const expenseId = req.params.id;
 
         const [rows] = await db.query(
-            'SELECT receipt_data, receipt_mimetype FROM expenses WHERE id = ? AND user_id = ?',
-            [expenseId, userId]
+            'SELECT receipt_data, receipt_mimetype FROM expenses WHERE id = ?',
+            [expenseId]
         );
 
         if (rows.length === 0 || !rows[0].receipt_data) {
-            return res.status(404).send('Receipt image not found.');
+            return res.status(404).send('No image attached to this expense.');
         }
 
         const receipt = rows[0];
         res.setHeader('Content-Type', receipt.receipt_mimetype || 'image/jpeg');
+        res.setHeader('Content-Disposition', 'inline');
         res.send(receipt.receipt_data);
     } catch (error) {
         console.error('Get Receipt Error:', error);

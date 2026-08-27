@@ -5,9 +5,11 @@ const upload = require('../middleware/upload');
 const { isLoggedIn } = require('../middleware/auth');
 
 router.get('/expenses', isLoggedIn, expenseController.getExpenses);
+
+// Accepts file uploads from input fields named 'receipt' or 'receiptImage'
 router.post('/expenses', isLoggedIn, upload.single('receiptImage'), expenseController.addExpense);
 
-// Route to render image binary directly from MySQL
-router.get('/expenses/receipt/:id', isLoggedIn, expenseController.getReceiptImage);
+// Public route to open and view the receipt image directly in the browser
+router.get('/expenses/receipt/:id', expenseController.getReceiptImage);
 
 module.exports = router;
