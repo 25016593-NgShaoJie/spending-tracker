@@ -5,16 +5,23 @@ exports.addExpense = async (req, res) => {
     try {
         const userId = req.session.user.id;
         const { amount, category, description, date_spent } = req.body;
-        const imageUrl = req.file ? req.file.path : null;
+        
+        // Extract raw image buffer and mime type if uploaded
+        const receiptData = req.file ? req.file.buffer : null;
+        const receiptMimetype = req.file ? req.file.mimetype : null;
 
-        // 1. Save to MySQL database
-        await db.query(
-            'INSERT INTO expenses (user_id, amount, category, description, date_spent, image_url) VALUES (?, ?, ?, ?, ?, ?)',
-            [userId, amount, category, description || null, date_spent, imageUrl]
+        // 1. Insert expense record and raw image buffer into MySQL
+        const [result] = await db.query(
+            'INSERT INTO expenses (user_id, amount, category, description, date_spent, receipt_data, receipt_mimetype) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [userId, amount, category, description || null, date_spent, receiptData, receiptMimetype]
         );
 
-        // 2. Prepare payload for Google Sheets duplicate check and append
+        const expenseId = result.insertId;
+        const imageUrl = receiptData ? `/expenses/receipt/${expenseId}` : null;
+
+        // 2. Sync to Google Sheets
         const expensePayload = {
+            id: expenseId,
             date_spent,
             category,
             amount,
@@ -22,14 +29,14 @@ exports.addExpense = async (req, res) => {
             imageUrl
         };
 
-        // 3. Sync to Google Sheets (awaited so it can't be lost to a restart/redeploy)
         const synced = await appendExpenseToSheet(userId, expensePayload, req.session.tokens);
 
         if (synced) {
-            req.flash('success', 'Expense logged successfully!');
+            req.flash('success', 'Expense logged and synced to Google Sheets!');
         } else {
-            req.flash('success', 'Expense logged, but Google Sheets sync failed - check your connection in Settings.');
+            req.flash('success', 'Expense logged successfully (Google Sheets sync bypassed or disconnected).');
         }
+
         res.redirect('/dashboard');
     } catch (error) {
         console.error('Add Expense Error:', error);
@@ -48,7 +55,7 @@ exports.getExpenses = async (req, res) => {
             category: req.query.category || 'All'
         };
 
-        let query = 'SELECT * FROM expenses WHERE user_id = ?';
+        let query = 'SELECT id, amount, category, description, date_spent, (receipt_data IS NOT NULL) AS has_receipt FROM expenses WHERE user_id = ?';
         const params = [userId];
 
         if (filters.startDate) {
@@ -77,5 +84,29 @@ exports.getExpenses = async (req, res) => {
         console.error('Fetch Expenses Error:', error);
         req.flash('error', 'Unable to load expenses.');
         res.redirect('/dashboard');
+    }
+};
+
+// Route controller to retrieve and display stored receipt image binary from MySQL
+exports.getReceiptImage = async (req, res) => {
+    try {
+        const userId = req.session.user.id;
+        const expenseId = req.params.id;
+
+        const [rows] = await db.query(
+            'SELECT receipt_data, receipt_mimetype FROM expenses WHERE id = ? AND user_id = ?',
+            [expenseId, userId]
+        );
+
+        if (rows.length === 0 || !rows[0].receipt_data) {
+            return res.status(404).send('Receipt image not found.');
+        }
+
+        const receipt = rows[0];
+        res.setHeader('Content-Type', receipt.receipt_mimetype || 'image/jpeg');
+        res.send(receipt.receipt_data);
+    } catch (error) {
+        console.error('Get Receipt Error:', error);
+        res.status(500).send('Error retrieving receipt image.');
     }
 };

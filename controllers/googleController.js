@@ -1,97 +1,105 @@
 const { google } = require('googleapis');
 const db = require('../config/db');
 
+const getOAuth2Client = (refreshToken) => {
+    const redirectUri = process.env.NODE_ENV === 'production'
+        ? 'https://cashwisely.onrender.com/auth/google/callback'
+        : 'http://localhost:4000/auth/google/callback';
+
+    const oauth2Client = new google.auth.OAuth2(
+        process.env.GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_CLIENT_SECRET,
+        process.env.GOOGLE_REDIRECT_URI || redirectUri
+    );
+
+    if (refreshToken) {
+        oauth2Client.setCredentials({ refresh_token: refreshToken });
+    }
+    return oauth2Client;
+};
+
 /**
- * Checks if an expense exists in the Google Sheet; if not, appends it.
+ * Syncs all past and present expenses from MySQL to Google Sheets
  */
-exports.appendExpenseToSheet = async (userId, expenseData, sessionTokens = null) => {
+exports.syncAllExpensesToSheet = async (userId, sessionTokens = null) => {
     try {
-        // 1. Fetch refresh token from 'users' and Sheet ID from 'settings'
-        const [userRows] = await db.execute(
-            `SELECT google_refresh_token FROM users WHERE id = ?`,
-            [userId]
-        );
-        const [settingsRows] = await db.execute(
-            `SELECT google_sheet_id FROM settings WHERE user_id = ?`,
-            [userId]
-        );
+        const [userRows] = await db.execute(`SELECT google_refresh_token FROM users WHERE id = ?`, [userId]);
+        const [settingsRows] = await db.execute(`SELECT google_sheet_id FROM settings WHERE user_id = ?`, [userId]);
 
         const refreshToken = userRows[0] ? userRows[0].google_refresh_token : null;
         const sheetId = settingsRows[0] ? settingsRows[0].google_sheet_id : null;
 
-        const activeTokens = refreshToken 
-            ? { refresh_token: refreshToken } 
-            : (sessionTokens || null);
+        if (!sheetId) return false;
 
-        if (!sheetId || !activeTokens) {
-            console.log(`[Google Sheets] User #${userId} missing Sheet ID or OAuth tokens.`);
+        let oauth2Client;
+        if (refreshToken) {
+            oauth2Client = getOAuth2Client(refreshToken);
+        } else if (sessionTokens) {
+            oauth2Client = getOAuth2Client(null);
+            oauth2Client.setCredentials(sessionTokens);
+        } else {
             return false;
         }
 
-        // 2. Configure OAuth2 client
-        const redirectUri = process.env.NODE_ENV === 'production'
-            ? 'https://cashwisely.onrender.com/auth/google/callback'
-            : 'http://localhost:4000/auth/google/callback';
-
-        const oauth2Client = new google.auth.OAuth2(
-            process.env.GOOGLE_CLIENT_ID,
-            process.env.GOOGLE_CLIENT_SECRET,
-            process.env.GOOGLE_REDIRECT_URI || redirectUri
-        );
-
-        oauth2Client.setCredentials(activeTokens);
-
         const sheets = google.sheets({ version: 'v4', auth: oauth2Client });
 
-        // 3. Format row payload
-        const dateSpent = expenseData.date_spent || expenseData.date || new Date().toISOString().split('T')[0];
-        const category = expenseData.category;
-        const amount = Number(expenseData.amount).toFixed(2);
-        const description = expenseData.description || 'N/A';
+        const [expenses] = await db.execute(
+            `SELECT id, date_spent, category, amount, description, (receipt_data IS NOT NULL) AS has_receipt FROM expenses WHERE user_id = ? ORDER BY date_spent ASC`,
+            [userId]
+        );
+
+        if (expenses.length === 0) return true;
 
         const baseUrl = process.env.APP_URL || 'https://cashwisely.onrender.com';
-        const fullImageUrl = expenseData.imageUrl 
-            ? (expenseData.imageUrl.startsWith('http') ? expenseData.imageUrl : `${baseUrl}${expenseData.imageUrl}`) 
-            : 'No Receipt';
 
-        // 4. Check existing sheet values to prevent duplicate entries
-        const response = await sheets.spreadsheets.values.get({
-            spreadsheetId: sheetId,
-            range: 'Sheet1!A:E',
-        });
-
-        const existingRows = response.data.values || [];
-
-        const isDuplicate = existingRows.some(row => {
-            const [rowDate, rowCat, rowAmt, rowDesc] = row;
-            return (
-                rowDate === dateSpent &&
-                rowCat === category &&
-                rowAmt === amount &&
-                (rowDesc || 'N/A') === description
-            );
-        });
-
-        if (isDuplicate) {
-            console.log(`[Google Sheets] Expense already exists in Sheet for User #${userId}. Skipping append.`);
-            return true;
+        let existingRows = [];
+        try {
+            const response = await sheets.spreadsheets.values.get({
+                spreadsheetId: sheetId,
+                range: 'Sheet1!A:E',
+            });
+            existingRows = response.data.values || [];
+        } catch (readErr) {
+            console.warn('[Google Sheets] Could not read sheet values, appending rows.');
         }
 
-        // 5. Append new row if not present
-        const rowValues = [[dateSpent, category, amount, description, fullImageUrl]];
+        const rowsToAppend = [];
 
-        await sheets.spreadsheets.values.append({
-            spreadsheetId: sheetId,
-            range: 'Sheet1!A:E',
-            valueInputOption: 'USER_ENTERED',
-            requestBody: { values: rowValues }
-        });
+        for (const exp of expenses) {
+            const dateSpent = exp.date_spent ? new Date(exp.date_spent).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+            const category = exp.category || 'Uncategorized';
+            const amount = Number(exp.amount).toFixed(2);
+            const description = exp.description || 'N/A';
+            const fullImageUrl = exp.has_receipt 
+                ? `${baseUrl}/expenses/receipt/${exp.id}` 
+                : 'No Receipt';
 
-        console.log(`[Google Sheets] Expense synced successfully for User #${userId}!`);
+            const isDuplicate = existingRows.some(row => {
+                const [rDate, rCat, rAmt] = row;
+                return rDate === dateSpent && rCat === category && rAmt === amount;
+            });
+
+            if (!isDuplicate) {
+                rowsToAppend.push([dateSpent, category, amount, description, fullImageUrl]);
+            }
+        }
+
+        if (rowsToAppend.length > 0) {
+            await sheets.spreadsheets.values.append({
+                spreadsheetId: sheetId,
+                range: 'Sheet1!A:E',
+                valueInputOption: 'USER_ENTERED',
+                requestBody: { values: rowsToAppend }
+            });
+        }
+
         return true;
-
     } catch (error) {
-        console.error('[Google Sheets] Sync error:', error.message);
+        console.error('[Google Sheets Sync Error]:', error.message);
         return false;
     }
+};
+
+exports.appendExpenseToSheet = async (userId, expenseData, sessionTokens = null) => {
+    return exports.syncAllExpensesToSheet(userId, sessionTokens);
 };
