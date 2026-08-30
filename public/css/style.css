@@ -162,6 +162,7 @@ select{
 }
 .btn-logout:hover{background:var(--surface-2); color:var(--text); text-decoration:none;}
 
+/* Filter bar buttons/links shouldn't stretch full width inline with a form row */
 .filter-form{display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end;}
 .filter-form .form-group{margin-bottom:0; min-width:150px; flex:1;}
 .filter-form .btn{width:auto;}
@@ -184,9 +185,26 @@ select{
 /* ============ AUTH PAGES ============ */
 .auth-wrap{min-height:70vh; display:flex; align-items:center; justify-content:center; padding:24px 0;}
 .auth-card{width:100%; max-width:400px;}
+.auth-card.auth-card-wide{max-width:460px;}
 .auth-card .sidebar-brand{align-items:center; text-align:center; padding:0 0 22px 0;}
 .auth-card h2{text-align:center; margin-bottom:18px;}
 .auth-card p{text-align:center; margin-top:14px; font-size:13.5px; color:var(--text-muted);}
+
+/* ============ SEGMENTED TOGGLE (e.g. savings goal type) ============ */
+.segmented-toggle{display:flex; gap:8px; margin-bottom:14px;}
+.segmented-toggle .seg-option{position:relative; flex:1;}
+.segmented-toggle input[type=radio]{position:absolute; opacity:0; width:100%; height:100%; margin:0; cursor:pointer;}
+.segmented-toggle label{
+  display:flex; align-items:center; justify-content:center; text-align:center;
+  background:var(--surface-2); border:1px solid var(--border); border-radius:8px;
+  padding:9px 6px; font-size:11.5px; font-weight:600; text-transform:none; letter-spacing:0;
+  color:var(--text-muted); cursor:pointer; transition:all 0.15s ease; height:100%;
+}
+.segmented-toggle input[type=radio]:checked + label{background:var(--accent-soft); border-color:var(--accent); color:var(--accent);}
+.segmented-toggle input[type=radio]:focus-visible + label{outline:2px solid var(--accent); outline-offset:1px;}
+
+.goal-panel{display:none;}
+.goal-panel.active{display:block;}
 
 /* ============ MOBILE BOTTOM NAV ============ */
 .mobile-nav{

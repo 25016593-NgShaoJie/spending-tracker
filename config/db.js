@@ -32,12 +32,37 @@ const pool = mysql.createPool({
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 user_id INT NOT NULL UNIQUE,
                 monthly_income DECIMAL(10, 2) DEFAULT 0.00,
+                savings_goal_type VARCHAR(20) NOT NULL DEFAULT 'percentage',
                 target_savings_percentage DECIMAL(5, 2) DEFAULT 0.00,
+                target_savings_amount DECIMAL(10, 2) DEFAULT 0.00,
+                savings_goal_amount DECIMAL(10, 2) DEFAULT NULL,
+                savings_goal_date DATE DEFAULT NULL,
                 google_sheet_id VARCHAR(255) DEFAULT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
             )
         `);
+
+        // Migrate pre-existing installs that already had a `settings` table
+        // before these columns existed (CREATE TABLE IF NOT EXISTS is a no-op
+        // on tables that already exist, so add anything that's missing).
+        const newSettingsColumns = [
+            { name: 'savings_goal_type', def: "VARCHAR(20) NOT NULL DEFAULT 'percentage'" },
+            { name: 'target_savings_amount', def: 'DECIMAL(10, 2) DEFAULT 0.00' },
+            { name: 'savings_goal_amount', def: 'DECIMAL(10, 2) DEFAULT NULL' },
+            { name: 'savings_goal_date', def: 'DATE DEFAULT NULL' }
+        ];
+        for (const col of newSettingsColumns) {
+            try {
+                await pool.query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS ${col.name} ${col.def}`);
+            } catch (err) {
+                // Older MySQL/MariaDB versions don't support "ADD COLUMN IF NOT EXISTS";
+                // a duplicate-column error there just means it's already present.
+                if (err.code !== 'ER_DUP_FIELDNAME') {
+                    console.error(`Could not ensure column settings.${col.name}:`, err.message);
+                }
+            }
+        }
 
         await pool.query(`
             CREATE TABLE IF NOT EXISTS expenses (

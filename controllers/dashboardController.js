@@ -9,10 +9,32 @@ exports.getDashboard = async (req, res) => {
         const userSettings = settingsRows[0] || {};
 
         const monthlyIncome = Number(userSettings.monthly_income || 0);
+        const savingsGoalType = userSettings.savings_goal_type || 'percentage';
         const targetSavingsPercentage = Number(userSettings.target_savings_percentage || 0);
 
-        // Calculate financial targets
-        const targetSavingsAmount = (monthlyIncome * targetSavingsPercentage) / 100;
+        // Work out this month's savings target from whichever goal type the user picked
+        let targetSavingsAmount = 0;
+        let savingsGoalSummary = null;
+
+        if (savingsGoalType === 'fixed_monthly') {
+            targetSavingsAmount = Number(userSettings.target_savings_amount || 0);
+            savingsGoalSummary = `Saving $${targetSavingsAmount.toFixed(2)}/month`;
+        } else if (savingsGoalType === 'target_date' && userSettings.savings_goal_amount && userSettings.savings_goal_date) {
+            const goalAmount = Number(userSettings.savings_goal_amount);
+            const goalDate = new Date(userSettings.savings_goal_date);
+            const now = new Date();
+            const monthsRemaining = Math.max(
+                1,
+                (goalDate.getFullYear() - now.getFullYear()) * 12 + (goalDate.getMonth() - now.getMonth())
+            );
+            targetSavingsAmount = goalAmount / monthsRemaining;
+            savingsGoalSummary = `$${targetSavingsAmount.toFixed(2)}/month to reach $${goalAmount.toFixed(2)} by ${goalDate.toLocaleDateString()}`;
+        } else {
+            // Default / 'percentage'
+            targetSavingsAmount = (monthlyIncome * targetSavingsPercentage) / 100;
+            savingsGoalSummary = `Saving ${targetSavingsPercentage}% of income`;
+        }
+
         const totalSpendableAllowance = monthlyIncome - targetSavingsAmount;
 
         // Fetch user expenses
@@ -53,8 +75,10 @@ exports.getDashboard = async (req, res) => {
             title: 'Dashboard - CashWisely',
             metrics: {
                 monthlyIncome,
+                savingsGoalType,
                 targetSavingsPercentage,
                 targetSavingsAmount,
+                savingsGoalSummary,
                 totalSpendableAllowance,
                 spentToday,
                 spentThisMonth,
