@@ -26,6 +26,7 @@ const getOAuth2Client = () => {
 // Route to initiate Google OAuth
 router.get('/auth/google', (req, res) => {
     if (!req.session || !req.session.user) {
+        req.flash('error', 'Please log in before connecting Google.');
         return res.redirect('/login');
     }
 
@@ -44,11 +45,19 @@ router.get('/auth/google', (req, res) => {
 
 // Route to handle Google OAuth Callback
 router.get('/auth/google/callback', async (req, res) => {
+    // Check if user session was lost during redirect
     if (!req.session || !req.session.user) {
+        console.error('OAuth Callback Error: Session lost during cross-site redirect.');
+        if (req.flash) req.flash('error', 'Session expired during login. Please try again.');
         return res.redirect('/login');
     }
 
     const { code } = req.query;
+    if (!code) {
+        if (req.flash) req.flash('error', 'No authorization code returned from Google.');
+        return res.redirect('/settings');
+    }
+
     try {
         const oauth2Client = getOAuth2Client();
         const { tokens } = await oauth2Client.getToken(code);
@@ -65,21 +74,23 @@ router.get('/auth/google/callback', async (req, res) => {
             );
         }
 
-        // Create Google Spreadsheet
+        // Create Google Spreadsheet (using updated requestBody parameter)
         const sheets = google.sheets({ version: 'v4', auth: oauth2Client });
         const spreadsheet = await sheets.spreadsheets.create({
-            resource: { properties: { title: 'CashWisely Expenses' } },
+            requestBody: { 
+                properties: { title: 'CashWisely Expenses' } 
+            },
             fields: 'spreadsheetId'
         });
 
         const spreadsheetId = spreadsheet.data.spreadsheetId;
 
-        // Initialize header row
+        // Initialize header row (using updated requestBody parameter)
         await sheets.spreadsheets.values.update({
             spreadsheetId,
             range: 'Sheet1!A1:D1',
             valueInputOption: 'USER_ENTERED',
-            resource: {
+            requestBody: {
                 values: [['Date', 'Category', 'Amount ($)', 'Description']]
             }
         });
@@ -94,8 +105,10 @@ router.get('/auth/google/callback', async (req, res) => {
         req.flash('success', 'Successfully connected Google Account and initialized Sheet!');
         res.redirect('/settings');
     } catch (error) {
-        console.error('Google OAuth Error:', error.response ? error.response.data : error);
-        req.flash('error', 'Failed to connect Google Account.');
+        const errorDetails = error.response ? error.response.data : error.message;
+        console.error('Google OAuth Error:', errorDetails);
+        
+        req.flash('error', 'Failed to connect Google Account: ' + (errorDetails.error_description || error.message));
         res.redirect('/settings');
     }
 });
