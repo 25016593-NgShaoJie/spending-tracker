@@ -186,7 +186,7 @@ STRICT CONSTRAINTS:
 
             // 2. Alert Admin / Group Chat
             if (adminChatId) {
-                const alertMessage = `⚠️ Help Desk Escalation\n\nFrom: ${userName} (Chat ID: ${userChatId})\nQuestion: "${userMessage}"`;
+                const alertMessage = `⚠️ Help Desk Escalation\n\nFrom: ${userName} (Chat ID: ${userChatId})\nQuestion: "${userMessage}" \n\nPlease reply to this message in the group chat with your answer.`;
                 await sendTelegramMessage(adminChatId, alertMessage);
             }
         } else {
