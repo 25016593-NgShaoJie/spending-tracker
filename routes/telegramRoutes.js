@@ -59,6 +59,27 @@ async function getKnowledgeBase() {
     }
 }
 
+// Append new Q&A pair to Knowledge Base via Apps Script Webhook
+async function appendToKnowledgeBase(category, question, answer) {
+    const webhookUrl = process.env.KB_WEBHOOK_URL;
+    if (!webhookUrl) {
+        console.warn('[KB Append Warning]: KB_WEBHOOK_URL is not configured in environment variables.');
+        return false;
+    }
+
+    try {
+        const response = await fetch(webhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ category, question, answer })
+        });
+        return response.ok;
+    } catch (err) {
+        console.error('[KB Webhook Append Error]:', err.message);
+        return false;
+    }
+}
+
 // Telegram Webhook Endpoint
 router.post('/api/telegram/webhook', async (req, res) => {
     // Instantly acknowledge Telegram to prevent retries
@@ -70,14 +91,43 @@ router.post('/api/telegram/webhook', async (req, res) => {
     const userChatId = update.message.chat.id;
     const adminChatId = process.env.TELEGRAM_CHAT_ID;
 
-    // GUARD 1: Ignore any messages originating directly from the Support/Admin Group Chat
-    if (adminChatId && String(userChatId) === String(adminChatId)) {
-        return;
-    }
+    // GUARD 1: Ignore non-bot automated messages
+    if (update.message.from && update.message.from.is_bot) return;
 
-    // GUARD 2: Ignore messages sent by other bots or automated messages
-    if (update.message.from && update.message.from.is_bot) {
-        return;
+    // GUARD 2: Handle Staff Replies inside the Admin/Support Group Chat
+    if (adminChatId && String(userChatId) === String(adminChatId)) {
+        const replyTo = update.message.reply_to_message;
+
+        // Verify staff replied to an escalation message
+        if (replyTo && replyTo.text && replyTo.text.includes('Help Desk Escalation')) {
+            const staffAnswer = update.message.text;
+
+            // Parse User Chat ID and Original Question from escalation template
+            const chatIdMatch = replyTo.text.match(/Chat ID:\s*(\d+|\-\d+)/);
+            const questionMatch = replyTo.text.match(/Question:\s*"([\s\S]+?)"/);
+
+            if (chatIdMatch && questionMatch) {
+                const targetUserChatId = chatIdMatch[1];
+                const originalQuestion = questionMatch[1];
+
+                // 1. Send staff response back to user
+                await sendTelegramMessage(
+                    targetUserChatId,
+                    `💬 *Response from CashWisely Support*:\n\n${staffAnswer}`
+                );
+
+                // 2. Append new entry to Knowledge Base Sheet
+                const appended = await appendToKnowledgeBase('Account Support', originalQuestion, staffAnswer);
+
+                // 3. Confirm status back to staff in group chat
+                if (appended) {
+                    await sendTelegramMessage(adminChatId, `✅ Reply delivered to user and appended to Knowledge Base!`);
+                } else {
+                    await sendTelegramMessage(adminChatId, `⚠️ Reply delivered to user, but KB_WEBHOOK_URL is not set.`);
+                }
+            }
+        }
+        return; // Stop processing group messages further
     }
 
     const userMessage = update.message.text;
@@ -92,7 +142,7 @@ router.post('/api/telegram/webhook', async (req, res) => {
     // Verify Gemini Initialization
     if (!ai) {
         console.error('[Gemini API Error]: GEMINI_API_KEY environment variable is missing on Render.');
-        await sendTelegramMessage(userChatId, "Our support bot is currently undergoing maintenance (Missing API configuration). Please try again shortly.");
+        await sendTelegramMessage(userChatId, "Our support bot is currently undergoing maintenance. Please try again shortly.");
         return;
     }
 
@@ -123,13 +173,12 @@ STRICT CONSTRAINTS:
         const replyText = response.text ? response.text.trim() : '[ESCALATE]';
 
         if (replyText.includes('[UNRELATED]')) {
-            // Unrelated query response (No staff escalation alert sent)
             await sendTelegramMessage(
                 userChatId,
                 "I cannot help you with that, maybe gemini.google.com can help you with it."
             );
         } else if (replyText.includes('[ESCALATE]')) {
-            // 1. Notify user in private chat
+            // 1. Notify user
             await sendTelegramMessage(
                 userChatId,
                 "I don't have the exact details for this right now, but support is on the way! Our team has been notified, and a staff member will review your message shortly."
