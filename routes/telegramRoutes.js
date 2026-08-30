@@ -2,11 +2,18 @@ const express = require('express');
 const router = express.Router();
 const { GoogleGenAI } = require('@google/genai');
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+// Safely initialize Gemini API
+const apiKey = process.env.GEMINI_API_KEY;
+const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 
-// Helper to send messages back to Telegram and log any API rejections
+// Helper to send messages back to Telegram
 async function sendTelegramMessage(chatId, text) {
     const token = process.env.TELEGRAM_BOT_TOKEN;
+    if (!token) {
+        console.error('[Telegram Error]: TELEGRAM_BOT_TOKEN is missing from environment variables.');
+        return;
+    }
+
     const url = `https://api.telegram.org/bot${token}/sendMessage`;
 
     try {
@@ -16,24 +23,26 @@ async function sendTelegramMessage(chatId, text) {
             body: JSON.stringify({
                 chat_id: chatId,
                 text: text
-                // Removed parse_mode: 'Markdown' to prevent parsing crashes on special characters
             })
         });
 
         if (!response.ok) {
             const errorData = await response.text();
-            console.error('[Telegram API Rejected Message]:', errorData);
+            console.error('[Telegram API Rejected Message]:', response.status, errorData);
         }
     } catch (err) {
         console.error('[Telegram Network Error]:', err);
     }
 }
 
-// Fetch public Google Sheet KB as CSV to avoid missing service account key errors
+// Fetch public Google Sheet KB as CSV
 async function getKnowledgeBase() {
     try {
         const sheetId = process.env.KB_SPREADSHEET_ID;
-        if (!sheetId) return '';
+        if (!sheetId) {
+            console.error('[Google Sheets Error]: KB_SPREADSHEET_ID is missing from environment variables.');
+            return '';
+        }
 
         const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv`;
         const response = await fetch(csvUrl);
@@ -43,8 +52,7 @@ async function getKnowledgeBase() {
             return '';
         }
 
-        const csvText = await response.text();
-        return csvText;
+        return await response.text();
     } catch (err) {
         console.error('[Failed to read Knowledge Base Sheet]:', err.message);
         return '';
@@ -53,7 +61,7 @@ async function getKnowledgeBase() {
 
 // Telegram Webhook Endpoint
 router.post('/api/telegram/webhook', async (req, res) => {
-    // Acknowledge Telegram immediately
+    // Instantly acknowledge Telegram to prevent retries
     res.sendStatus(200);
 
     const update = req.body;
@@ -66,6 +74,13 @@ router.post('/api/telegram/webhook', async (req, res) => {
     // Command Handler
     if (userMessage.startsWith('/')) {
         await sendTelegramMessage(userChatId, `Hi ${userName}! Welcome to CashWisely Support. Ask me any question regarding your account, budgets, or Google Sheets sync.`);
+        return;
+    }
+
+    // Verify Gemini Initialization
+    if (!ai) {
+        console.error('[Gemini API Error]: GEMINI_API_KEY environment variable is missing on Render.');
+        await sendTelegramMessage(userChatId, "Our support bot is currently undergoing maintenance (Missing API configuration). Please try again shortly.");
         return;
     }
 
@@ -95,13 +110,13 @@ STRICT CONSTRAINTS:
         const replyText = response.text ? response.text.trim() : '[ESCALATE]';
 
         if (replyText.includes('[ESCALATE]')) {
-            // 1. Notify the user that staff has been alerted
+            // 1. Notify the user
             await sendTelegramMessage(
                 userChatId,
                 "I don't have the exact details for this right now, but support is on the way! Our team has been notified, and a staff member will review your message shortly."
             );
 
-            // 2. Alert Admin (your personal Telegram Chat ID)
+            // 2. Alert Admin / Group Chat
             const adminChatId = process.env.TELEGRAM_CHAT_ID;
             if (adminChatId && String(adminChatId) !== String(userChatId)) {
                 const alertMessage = `⚠️ Help Desk Escalation\n\nFrom: ${userName} (Chat ID: ${userChatId})\nQuestion: "${userMessage}"`;
