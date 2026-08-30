@@ -68,6 +68,18 @@ router.post('/api/telegram/webhook', async (req, res) => {
     if (!update || !update.message || !update.message.text) return;
 
     const userChatId = update.message.chat.id;
+    const adminChatId = process.env.TELEGRAM_CHAT_ID;
+
+    // GUARD 1: Ignore any messages originating directly from the Support/Admin Group Chat
+    if (adminChatId && String(userChatId) === String(adminChatId)) {
+        return;
+    }
+
+    // GUARD 2: Ignore messages sent by other bots or automated messages
+    if (update.message.from && update.message.from.is_bot) {
+        return;
+    }
+
     const userMessage = update.message.text;
     const userName = update.message.from.first_name || 'User';
 
@@ -117,15 +129,14 @@ STRICT CONSTRAINTS:
                 "I cannot help you with that, maybe gemini.google.com can help you with it."
             );
         } else if (replyText.includes('[ESCALATE]')) {
-            // 1. Notify user
+            // 1. Notify user in private chat
             await sendTelegramMessage(
                 userChatId,
                 "I don't have the exact details for this right now, but support is on the way! Our team has been notified, and a staff member will review your message shortly."
             );
 
             // 2. Alert Admin / Group Chat
-            const adminChatId = process.env.TELEGRAM_CHAT_ID;
-            if (adminChatId && String(adminChatId) !== String(userChatId)) {
+            if (adminChatId) {
                 const alertMessage = `⚠️ Help Desk Escalation\n\nFrom: ${userName} (Chat ID: ${userChatId})\nQuestion: "${userMessage}"`;
                 await sendTelegramMessage(adminChatId, alertMessage);
             }
