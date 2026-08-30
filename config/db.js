@@ -76,6 +76,18 @@ const pool = mysql.createPool({
                 INDEX idx_expenses_user_id (user_id)
             )
         `);
+
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS deposits (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NOT NULL,
+                amount DECIMAL(10, 2) NOT NULL,
+                source VARCHAR(255) DEFAULT NULL,
+                date_added DATE NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_deposits_user_id (user_id)
+            )
+        `);
     } catch (err) {
         console.error('Database initialization error:', err);
     }

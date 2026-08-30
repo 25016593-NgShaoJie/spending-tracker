@@ -18,6 +18,11 @@
             <small>Monthly Limit: $<%= metrics.totalSpendableAllowance.toFixed(2) %></small>
         </div>
         <div class="card">
+            <h3>Added This Month</h3>
+            <p class="metric-value text-success">+$<%= metrics.depositsThisMonth.toFixed(2) %></p>
+            <small>Extra income &amp; deposits</small>
+        </div>
+        <div class="card">
             <h3>Remaining Allowance</h3>
             <p class="metric-value <%= metrics.remainingMonthlyAllowance < 0 ? 'text-danger' : 'text-success' %>">
                 $<%= metrics.remainingMonthlyAllowance.toFixed(2) %>
@@ -32,40 +37,61 @@
     </div>
 
     <div class="content-split">
-        <!-- LOG EXPENSE FORM -->
-        <div class="card form-card">
-            <h2>Log New Expense</h2>
-            <form action="/expenses" method="POST">
-                <div class="form-group">
-                    <label>Amount ($)</label>
-                    <input type="number" step="0.01" name="amount" placeholder="0.00" required>
-                </div>
-                <div class="form-group">
-                    <label>Category</label>
-                    <select name="category" required>
-                        <option value="" disabled selected>Select Category</option>
-                        <option value="Food & Dining">Food & Dining</option>
-                        <option value="Transportation">Transportation</option>
-                        <option value="Groceries">Groceries</option>
-                        <option value="Utilities">Utilities</option>
-                        <option value="Entertainment">Entertainment</option>
-                        <option value="Shopping">Shopping</option>
-                        <option value="Other">Other</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Date</label>
-                    <input type="date" name="date_spent" value="<%= new Date().toISOString().split('T')[0] %>" required>
-                </div>
-                <div class="form-group">
-                    <label>Description</label>
-                    <input type="text" name="description" placeholder="e.g. Coffee at Starbucks">
-                </div>
-                <button type="submit" class="btn btn-primary">Add Expense</button>
-            </form>
+        <!-- LEFT COLUMN: quick-entry forms -->
+        <div>
+            <div class="card form-card">
+                <h2>Log New Expense</h2>
+                <form action="/expenses" method="POST">
+                    <div class="form-group">
+                        <label>Amount ($)</label>
+                        <input type="number" step="0.01" min="0.01" name="amount" placeholder="0.00" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Category</label>
+                        <select name="category" required>
+                            <option value="" disabled selected>Select Category</option>
+                            <option value="Food & Dining">Food & Dining</option>
+                            <option value="Transportation">Transportation</option>
+                            <option value="Groceries">Groceries</option>
+                            <option value="Utilities">Utilities</option>
+                            <option value="Entertainment">Entertainment</option>
+                            <option value="Shopping">Shopping</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Date</label>
+                        <input type="date" name="date_spent" value="<%= new Date().toISOString().split('T')[0] %>" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Description</label>
+                        <input type="text" name="description" placeholder="e.g. Coffee at Starbucks">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Add Expense</button>
+                </form>
+            </div>
+
+            <div class="card form-card">
+                <h2>Add Money</h2>
+                <form action="/deposits" method="POST">
+                    <div class="form-group">
+                        <label>Amount ($)</label>
+                        <input type="number" step="0.01" min="0.01" name="amount" placeholder="0.00" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Source</label>
+                        <input type="text" name="source" placeholder="e.g. Freelance payment, gift">
+                    </div>
+                    <div class="form-group">
+                        <label>Date</label>
+                        <input type="date" name="date_added" value="<%= new Date().toISOString().split('T')[0] %>" required>
+                    </div>
+                    <button type="submit" class="btn btn-secondary">Add Money</button>
+                </form>
+            </div>
         </div>
 
-        <!-- RECENT TRANSACTIONS TABLE -->
+        <!-- RECENT ACTIVITY -->
         <div class="card table-card">
             <h2>Recent Expenses</h2>
             <% if (recentExpenses.length > 0) { %>
@@ -89,6 +115,28 @@
                 </table>
             <% } else { %>
                 <p>No expenses logged yet.</p>
+            <% } %>
+
+            <% if (recentDeposits.length > 0) { %>
+                <h2 style="margin-top:22px;">Recent Deposits</h2>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Source</th>
+                            <th>Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% recentDeposits.forEach(deposit => { %>
+                            <tr>
+                                <td><%= new Date(deposit.date_added).toLocaleDateString() %></td>
+                                <td><%= deposit.source || '-' %></td>
+                                <td class="text-success">+$<%= Number(deposit.amount).toFixed(2) %></td>
+                            </tr>
+                        <% }) %>
+                    </tbody>
+                </table>
             <% } %>
         </div>
     </div>

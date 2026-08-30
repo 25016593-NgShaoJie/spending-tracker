@@ -6,14 +6,20 @@ exports.addExpense = async (req, res) => {
         const userId = req.session.user.id;
         const { amount, category, description, date_spent } = req.body;
 
+        const numericAmount = Number(amount);
+        if (!amount || isNaN(numericAmount) || numericAmount <= 0) {
+            req.flash('error', 'Expense amount must be greater than $0.');
+            return res.redirect('/dashboard');
+        }
+
         // Save expense into MySQL
         const [result] = await db.query(
             'INSERT INTO expenses (user_id, amount, category, description, date_spent) VALUES (?, ?, ?, ?, ?)',
-            [userId, amount, category, description || null, date_spent]
+            [userId, numericAmount, category, description || null, date_spent]
         );
 
         // Sync expense payload to Google Sheets
-        const expensePayload = { date_spent, category, amount, description };
+        const expensePayload = { date_spent, category, amount: numericAmount, description };
         appendExpenseToSheet(userId, expensePayload, req.session.tokens);
 
         req.flash('success', 'Expense logged successfully!');

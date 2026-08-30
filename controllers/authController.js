@@ -1,5 +1,6 @@
 const bcrypt = require('bcrypt');
 const db = require('../config/db');
+const { parseSavingsGoal } = require('../utils/savingsGoal');
 
 // Render Pages
 exports.getRegister = (req, res) => res.render('auth/register', { title: 'Register' });
@@ -8,64 +9,23 @@ exports.getLogin = (req, res) => res.render('auth/login', { title: 'Login' });
 // Register Logic
 exports.registerUser = async (req, res) => {
     try {
-        const {
-            username, email, password,
-            monthly_income,
-            savings_goal_type,
-            target_savings_percentage,
-            target_savings_amount,
-            savings_goal_amount,
-            savings_goal_date
-        } = req.body;
+        const { username, email, password, monthly_income, savings_goal_type } = req.body;
 
         if (!username || !email || !password || !monthly_income || !savings_goal_type) {
             req.flash('error', 'All fields are required.');
             return res.redirect('/register');
         }
 
-        // Validate whichever savings goal option they picked
-        let percentage = 0;
-        let fixedMonthlyAmount = 0;
-        let goalAmount = null;
-        let goalDate = null;
+        const numericIncome = Number(monthly_income);
+        if (isNaN(numericIncome) || numericIncome <= 0) {
+            req.flash('error', 'Monthly income must be greater than $0.');
+            return res.redirect('/register');
+        }
 
-        if (savings_goal_type === 'percentage') {
-            if (target_savings_percentage === undefined || target_savings_percentage === '') {
-                req.flash('error', 'Please enter what percentage of your income you want to save.');
-                return res.redirect('/register');
-            }
-            percentage = Number(target_savings_percentage);
-            if (isNaN(percentage) || percentage < 0 || percentage > 100) {
-                req.flash('error', 'Savings percentage must be between 0 and 100.');
-                return res.redirect('/register');
-            }
-        } else if (savings_goal_type === 'fixed_monthly') {
-            if (!target_savings_amount) {
-                req.flash('error', 'Please enter how much you want to save per month.');
-                return res.redirect('/register');
-            }
-            fixedMonthlyAmount = Number(target_savings_amount);
-            if (isNaN(fixedMonthlyAmount) || fixedMonthlyAmount < 0) {
-                req.flash('error', 'Monthly savings amount must be a valid number.');
-                return res.redirect('/register');
-            }
-        } else if (savings_goal_type === 'target_date') {
-            if (!savings_goal_amount || !savings_goal_date) {
-                req.flash('error', 'Please enter both a savings goal amount and a target date.');
-                return res.redirect('/register');
-            }
-            goalAmount = Number(savings_goal_amount);
-            goalDate = savings_goal_date;
-            if (isNaN(goalAmount) || goalAmount <= 0) {
-                req.flash('error', 'Savings goal amount must be a valid number.');
-                return res.redirect('/register');
-            }
-            if (new Date(goalDate) <= new Date()) {
-                req.flash('error', 'Target date must be in the future.');
-                return res.redirect('/register');
-            }
-        } else {
-            req.flash('error', 'Please choose a valid savings goal option.');
+        // Validate whichever savings goal option they picked
+        const goal = parseSavingsGoal(req.body);
+        if (goal.error) {
+            req.flash('error', goal.error);
             return res.redirect('/register');
         }
 
@@ -88,7 +48,15 @@ exports.registerUser = async (req, res) => {
             `INSERT INTO settings
                 (user_id, monthly_income, savings_goal_type, target_savings_percentage, target_savings_amount, savings_goal_amount, savings_goal_date)
              VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [result.insertId, monthly_income, savings_goal_type, percentage, fixedMonthlyAmount, goalAmount, goalDate]
+            [
+                result.insertId,
+                numericIncome,
+                goal.data.savings_goal_type,
+                goal.data.target_savings_percentage,
+                goal.data.target_savings_amount,
+                goal.data.savings_goal_amount,
+                goal.data.savings_goal_date
+            ]
         );
 
         req.flash('success', 'Registration successful! Please log in.');

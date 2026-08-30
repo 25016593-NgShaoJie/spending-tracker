@@ -37,11 +37,13 @@ const googleRoutes = require('./routes/googleRoutes');
 const authRoutes = require('./routes/authRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const expenseRoutes = require('./routes/expenseRoutes');
+const depositRoutes = require('./routes/depositRoutes');
 
 // Mount All Routes
 app.use('/', authRoutes);
 app.use('/', dashboardRoutes);
 app.use('/', expenseRoutes);
+app.use('/', depositRoutes);
 app.use('/', googleRoutes);
 
 // Default Root Redirect

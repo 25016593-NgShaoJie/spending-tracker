@@ -3,31 +3,118 @@
 <%- include('partials/flash') %>
 
 <h1>Settings</h1>
-<p style="color:var(--text-muted); font-size:13.5px; margin-bottom:4px;">Your budget baseline and sync options.</p>
+<p style="color:var(--text-muted); font-size:13.5px; margin-bottom:4px;">Your budget baseline and savings goal.</p>
+
+    <!-- CURRENT PLAN SUMMARY -->
+    <div class="card highlight-card">
+        <h3>Current Savings Plan</h3>
+        <p class="metric-value">$<%= plan.targetSavingsAmount.toFixed(2) %> <span style="font-family:'Inter'; font-size:14px; color:var(--text-muted); font-weight:600;">/ month</span></p>
+        <small><%= plan.savingsGoalSummary %></small>
+    </div>
 
     <div class="card">
-        <h2>Monthly Income & Savings Baseline</h2>
-        <form action="/settings/budget" method="POST">
+        <h2>Monthly Income &amp; Savings Goal</h2>
+        <form action="/settings/budget" method="POST" id="settingsForm">
             <div class="form-group">
-                <label>Monthly Income ($)</label>
-                <input type="number" step="0.01" name="monthly_income" value="<%= (settings && settings.monthlyIncome) ? settings.monthlyIncome : 0 %>" required>
+                <label for="monthly_income">Monthly Income / Allowance ($)</label>
+                <input type="number" step="0.01" min="0.01" id="monthly_income" name="monthly_income" value="<%= settings.monthlyIncome %>" required>
             </div>
+
             <div class="form-group">
-                <label>Target Savings Percentage (%)</label>
-                <input type="number" step="0.1" name="target_savings_percentage" value="<%= (settings && settings.targetSavingsPercentage) ? settings.targetSavingsPercentage : 0 %>" required>
+                <label>Savings Goal</label>
+                <div class="segmented-toggle">
+                    <div class="seg-option">
+                        <input type="radio" id="goalPercentage" name="savings_goal_type" value="percentage" <%= settings.savingsGoalType === 'percentage' ? 'checked' : '' %>>
+                        <label for="goalPercentage">% per month</label>
+                    </div>
+                    <div class="seg-option">
+                        <input type="radio" id="goalFixed" name="savings_goal_type" value="fixed_monthly" <%= settings.savingsGoalType === 'fixed_monthly' ? 'checked' : '' %>>
+                        <label for="goalFixed">$ per month</label>
+                    </div>
+                    <div class="seg-option">
+                        <input type="radio" id="goalTarget" name="savings_goal_type" value="target_date" <%= settings.savingsGoalType === 'target_date' ? 'checked' : '' %>>
+                        <label for="goalTarget">Save by a date</label>
+                    </div>
+                </div>
+
+                <!-- Option A: percentage of income per month -->
+                <div class="goal-panel <%= settings.savingsGoalType === 'percentage' ? 'active' : '' %>" data-panel="percentage">
+                    <div class="form-group">
+                        <label for="target_savings_percentage">Percentage of income to save (%)</label>
+                        <input type="number" step="0.1" min="0" max="100" id="target_savings_percentage" name="target_savings_percentage" value="<%= settings.targetSavingsPercentage %>">
+                    </div>
+                </div>
+
+                <!-- Option B: fixed dollar amount per month -->
+                <div class="goal-panel <%= settings.savingsGoalType === 'fixed_monthly' ? 'active' : '' %>" data-panel="fixed_monthly">
+                    <div class="form-group">
+                        <label for="target_savings_amount">Amount to save per month ($)</label>
+                        <input type="number" step="0.01" min="0" id="target_savings_amount" name="target_savings_amount" value="<%= settings.targetSavingsAmount %>">
+                    </div>
+                </div>
+
+                <!-- Option C: total amount saved by a target date -->
+                <div class="goal-panel <%= settings.savingsGoalType === 'target_date' ? 'active' : '' %>" data-panel="target_date">
+                    <div class="form-group">
+                        <label for="savings_goal_amount">Total amount you want to save ($)</label>
+                        <input type="number" step="0.01" min="0.01" id="savings_goal_amount" name="savings_goal_amount" value="<%= settings.savingsGoalAmount %>" placeholder="e.g. 5000.00">
+                    </div>
+                    <div class="form-group">
+                        <label for="savings_goal_date">Target date</label>
+                        <input type="date" id="savings_goal_date" name="savings_goal_date" value="<%= settings.savingsGoalDate %>">
+                    </div>
+                    <small>We'll split this across the months remaining and show your monthly target above.</small>
+                </div>
             </div>
+
             <button type="submit" class="btn btn-primary">Save Budget Settings</button>
         </form>
     </div>
 
     <div class="card">
         <h2>Google Spreadsheet Sync</h2>
-        <% if (settings && settings.googleSheetId) { %>
+        <% if (settings.googleSheetId) { %>
             <p class="text-success">Connected Sheet ID: <strong><%= settings.googleSheetId %></strong></p>
         <% } else { %>
             <p>Not connected to Google Sheets.</p>
         <% } %>
         <a href="/auth/google" class="btn btn-secondary">Connect / Reconnect Google Account</a>
     </div>
+
+<script>
+(function () {
+    var form = document.getElementById('settingsForm');
+    var radios = form.querySelectorAll('input[name="savings_goal_type"]');
+    var panels = form.querySelectorAll('.goal-panel');
+
+    // Inputs that should only be required when their panel is the active one
+    var conditional = {
+        percentage: [document.getElementById('target_savings_percentage')],
+        fixed_monthly: [document.getElementById('target_savings_amount')],
+        target_date: [document.getElementById('savings_goal_amount'), document.getElementById('savings_goal_date')]
+    };
+
+    function setActive(goalType) {
+        panels.forEach(function (panel) {
+            panel.classList.toggle('active', panel.dataset.panel === goalType);
+        });
+        Object.keys(conditional).forEach(function (key) {
+            conditional[key].forEach(function (input) {
+                if (!input) return;
+                input.required = (key === goalType);
+            });
+        });
+    }
+
+    radios.forEach(function (radio) {
+        radio.addEventListener('change', function () {
+            if (radio.checked) setActive(radio.value);
+        });
+    });
+
+    // Initialize on load to match whichever option is currently saved
+    setActive(form.querySelector('input[name="savings_goal_type"]:checked').value);
+})();
+</script>
 
 <%- include('partials/footer') %>
