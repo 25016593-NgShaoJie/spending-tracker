@@ -1,22 +1,63 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><%= typeof title !== 'undefined' ? title : 'CashWisely' %></title>
-    <link rel="stylesheet" href="/css/style.css">
-    <link rel="icon" type="image/jpeg" href="/logo.jpg">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title><%= typeof title !== 'undefined' ? title : 'CashWisely' %></title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+<link rel="icon" type="image/jpeg" href="/logo.jpg">
 </head>
 <body>
-    <nav class="navbar">
-        <div class="nav-brand"><a href="/dashboard">CashWisely 💡</a></div>
-        <% if (user) { %>
-            <ul class="nav-links">
-                <li><a href="/dashboard">Dashboard</a></li>
-                <li><a href="/expenses">History</a></li>
-                <li><a href="/settings">Settings</a></li>
-                <li><a href="/logout" class="btn-logout">Logout</a></li>
-            </ul>
-        <% } %>
+<%
+  const navItems = [
+    { href: '/dashboard', label: 'Dashboard', tab: 'dashboard' },
+    { href: '/expenses', label: 'History', tab: 'expenses' },
+    { href: '/settings', label: 'Settings', tab: 'settings' },
+  ];
+  const path = typeof currentPath !== 'undefined' ? currentPath : '';
+%>
+<% if (user) { %>
+<div id="app-shell">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <span class="word1 display">CASH<span class="word2 display">WISELY</span></span>
+      <span class="brand-sub">smart spending, tracked.</span>
+    </div>
+
+    <nav class="sidebar-nav">
+      <a class="nav-btn <%= path.startsWith('/dashboard') ? 'active' : '' %>" href="/dashboard">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+        <span>Dashboard</span>
+      </a>
+      <a class="nav-btn <%= path.startsWith('/expenses') ? 'active' : '' %>" href="/expenses">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+        <span>History</span>
+      </a>
+      <a class="nav-btn <%= path.startsWith('/settings') ? 'active' : '' %>" href="/settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+        <span>Settings</span>
+      </a>
     </nav>
-    <div class="container">
+
+    <div class="sidebar-footer">
+      <a href="/logout" class="btn btn-logout" style="width:100%; justify-content:center;">Logout</a>
+    </div>
+  </aside>
+
+  <div class="main-col">
+    <header class="mobile-topbar">
+      <div class="brand">
+        <span class="word1 display">CASH<span class="word2 display">WISELY</span></span>
+        <span class="brand-sub">smart spending, tracked.</span>
+      </div>
+      <a href="/logout" class="btn btn-logout">Logout</a>
+    </header>
+
+    <main class="content">
+<% } else { %>
+<div id="app-shell">
+  <div class="main-col">
+    <main class="content" style="max-width:600px;">
+<% } %>

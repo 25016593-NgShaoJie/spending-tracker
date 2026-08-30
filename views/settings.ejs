@@ -1,9 +1,9 @@
 <%- include('partials/header') %>
 
-<div class="container">
-    <%- include('partials/flash') %>
+<%- include('partials/flash') %>
 
-    <h1>Settings</h1>
+<h1>Settings</h1>
+<p style="color:var(--text-muted); font-size:13.5px; margin-bottom:4px;">Your budget baseline and sync options.</p>
 
     <div class="card">
         <h2>Monthly Income & Savings Baseline</h2>
@@ -29,6 +29,5 @@
         <% } %>
         <a href="/auth/google" class="btn btn-secondary">Connect / Reconnect Google Account</a>
     </div>
-</div>
 
 <%- include('partials/footer') %>

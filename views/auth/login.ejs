@@ -1,18 +1,26 @@
 <%- include('../partials/header') %>
-<%- include('../partials/flash') %>
+<div class="auth-wrap">
+  <div class="card auth-card">
+    <div class="sidebar-brand">
+      <span class="word1 display">CASH<span class="word2 display">WISELY</span></span>
+      <span class="brand-sub">smart spending, tracked.</span>
+    </div>
 
-<article style="max-width: 500px; margin: 2rem auto;">
-    <h2>Log In to CashWisely</h2>
+    <%- include('../partials/flash') %>
+
+    <h2>Log In</h2>
     <form action="/login" method="POST">
-        <label for="email">Email Address</label>
-        <input type="email" id="email" name="email" required placeholder="you@example.com">
-
-        <label for="password">Password</label>
-        <input type="password" id="password" name="password" required>
-
-        <button type="submit">Log In</button>
+        <div class="form-group">
+            <label for="email">Email Address</label>
+            <input type="email" id="email" name="email" required placeholder="you@example.com">
+        </div>
+        <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Log In</button>
     </form>
-    <p style="text-align: center;">Don't have an account? <a href="/register">Sign up here</a></p>
-</article>
-
+    <p>Don't have an account? <a href="/register">Sign up here</a></p>
+  </div>
+</div>
 <%- include('../partials/footer') %>

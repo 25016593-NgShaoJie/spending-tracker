@@ -1,9 +1,9 @@
 <%- include('partials/header') %>
 
-<div class="container">
-    <%- include('partials/flash') %>
+<%- include('partials/flash') %>
 
-    <h1>Expense History</h1>
+<h1>Expense History</h1>
+<p style="color:var(--text-muted); font-size:13.5px; margin-bottom:4px;">Every logged expense, filterable by date and category.</p>
 
     <!-- FILTER BAR -->
     <div class="card">
@@ -61,6 +61,5 @@
             <p>No matching expenses found.</p>
         <% } %>
     </div>
-</div>
 
 <%- include('partials/footer') %>
