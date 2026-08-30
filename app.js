@@ -3,6 +3,7 @@ const session = require('express-session');
 const flash = require('connect-flash');
 const path = require('path');
 const passport = require('passport'); // 1. Imported Passport
+const telegramRoutes = require('./routes/telegramRoutes');
 require('dotenv').config();
 
 // Initialize Database Connection
@@ -61,6 +62,7 @@ app.use('/', dashboardRoutes);
 app.use('/', expenseRoutes);
 app.use('/', depositRoutes);
 app.use('/', googleRoutes);
+app.use('/', telegramRoutes);
 
 // Default Root Redirect
 app.get('/', (req, res) => {
