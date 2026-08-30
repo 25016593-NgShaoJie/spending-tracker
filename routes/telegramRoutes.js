@@ -95,8 +95,9 @@ ${kbContext}
 
 STRICT CONSTRAINTS:
 1. If the answer is clearly in the Knowledge Base, provide a short, friendly, and helpful response.
-2. If the answer is NOT in the Knowledge Base or requires human intervention, reply with EXACTLY: "[ESCALATE]"
-3. Do not assume, guess, or use external knowledge outside the provided list.
+2. If the question is related to CashWisely, personal finance, budgeting, receipts, or app support, but the answer is NOT in the Knowledge Base, reply with EXACTLY: "[ESCALATE]"
+3. If the question is completely unrelated to CashWisely or financial app support (e.g., general trivia, off-topic questions, chit-chat, or random facts), reply with EXACTLY: "[UNRELATED]"
+4. Do not assume, guess, or use external knowledge outside the provided list.
 `;
 
     try {
@@ -109,8 +110,14 @@ STRICT CONSTRAINTS:
 
         const replyText = response.text ? response.text.trim() : '[ESCALATE]';
 
-        if (replyText.includes('[ESCALATE]')) {
-            // 1. Notify the user
+        if (replyText.includes('[UNRELATED]')) {
+            // Unrelated query response (No staff escalation alert sent)
+            await sendTelegramMessage(
+                userChatId,
+                "I cannot help you with that, maybe gemini.google.com can help you with it."
+            );
+        } else if (replyText.includes('[ESCALATE]')) {
+            // 1. Notify user
             await sendTelegramMessage(
                 userChatId,
                 "I don't have the exact details for this right now, but support is on the way! Our team has been notified, and a staff member will review your message shortly."
